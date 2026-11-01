@@ -46,6 +46,14 @@ TV on the computer:
   needed one fix for the Frame's older browser (no `inset` in CSS), which showed no photos and two
   clocks before it.
 
+- **Older Samsungs (2020, Tizen 5.5).** Their browser is a Chrome 69 engine (the 2021 Frame's is
+  Chrome 76). Neither has `gap` between flex items (Chrome 84) or `inset` (Chrome 87), so rows lost
+  their spacing and the settings and smart home screens did not cover the screen.
+  `tv-home/web/compat.js` now puts the gaps back as margins on browsers without flex gap, and
+  app.css spells `inset: 0` out as top/right/bottom/left. The TV home's JavaScript is plain ES5,
+  which these browsers run. Checked in a browser with the fallback forced on (the same picture as
+  with real gaps); not yet on a real 2020 TV.
+
 ## What works and what does not
 
 | | Samsung |
