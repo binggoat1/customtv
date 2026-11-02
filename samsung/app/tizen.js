@@ -151,45 +151,210 @@
     return true;
   }
   function closeSources() { srcOn = false; if (srcBox) srcBox.style.display = "none"; }
+  // ---------- watching inside Couch TV: live TV and inputs, with our own on-screen bits ----------
+  // The picture comes through the TV window (tizen.tvwindow, privilege tv.window) under a
+  // transparent page, so the channel banner, channel list and volume are ours, not Samsung's.
+  // Channels: tizen.tvchannel (tv.channel). Volume: tizen.tvaudiocontrol (tv.audio). The remote's
+  // Home button still opens Samsung's Smart Hub: no app may take it.
+  var watch = null, listOn = false;
+  var RECT = ["0px", "0px", innerWidth + "px", innerHeight + "px"];
+  function layer(cls) {
+    var d = document.createElement("div");
+    d.className = "osd " + cls; d.style.display = "none";
+    document.body.appendChild(d);
+    return d;
+  }
+  var bannerEl = null, listEl = null, volEl = null, bannerTimer = null, volTimer = null;
   function pickSource() {
     var x = srcItems[srcI];
     if (!x) return;
-    if (x.kind === "tv") { closeSources(); hideApp(); return; }
-    try {
-      var fail = function (e) { send("log", "tvwindow: " + (e && e.name)); srcMsg(said("src_failed") + (e && e.name ? " (" + e.name + ")" : "")); };
-      tizen.tvwindow.setSource({ type: x.type, number: x.number }, function () {
-        tizen.tvwindow.show(function () {
-          closeSources(); winOn = true; document.documentElement.classList.add("tvwin");
-        }, fail, ["0px", "0px", innerWidth + "px", innerHeight + "px"], "MAIN");
-      }, fail, "MAIN");
-    } catch (e) { send("log", "tvwindow threw " + e); srcMsg(said("src_reinstall")); }
+    if (x.kind === "tv") { openLive(); return; }
+    showSource({ type: x.type, number: x.number }, function (e, threw) {
+      srcMsg(threw ? said("src_reinstall") : said("src_failed") + (e && e.name ? " (" + e.name + ")" : ""));
+    });
   }
+  function showSource(src, fail) {
+    var bad = function (e) { send("log", "tvwindow: " + (e && e.name)); fail(e, false); };
+    try {
+      tizen.tvwindow.setSource(src, function () {
+        tizen.tvwindow.show(function () {
+          closeSources(); closeList();
+          watch = src; winOn = true;
+          document.documentElement.classList.add("tvwin");
+          if (src.type === "TV") banner();
+        }, bad, RECT, "MAIN");
+      }, bad, "MAIN");
+    } catch (e) { send("log", "tvwindow threw " + e); fail(e, true); }
+  }
+  // Live TV inside Couch TV; where the TV will not show it, back to the TV's own live TV
+  function openLive() {
+    if (watch && watch.type === "TV") { banner(); return true; }
+    showSource(tvSrc, function () { closeSources(); hideApp(); });
+    return true;
+  }
+  var tvSrc = { type: "TV", number: 1 };
+  try {
+    tizen.systeminfo.getPropertyValue("VIDEOSOURCE", function (v) {
+      (v.connected || []).concat(v.disconnected || []).forEach(function (x) { if (x.type === "TV") tvSrc = { type: "TV", number: x.number }; });
+    }, function () {});
+  } catch (e) {}
   function closeWindow() {
-    winOn = false; document.documentElement.classList.remove("tvwin");
+    winOn = false; watch = null; digits = ""; clearTimeout(digitTimer);
+    closeList(); hide(bannerEl);
+    document.documentElement.classList.remove("tvwin");
     try { tizen.tvwindow.hide(function () {}, function () {}, "MAIN"); } catch (e) {}
   }
-  // While our menu or an input is up, the remote's keys are ours, before app.js sees them.
+  function hide(el) { if (el) el.style.display = "none"; }
+
+  // channels
+  var chList = null;
+  function channels(cb) {
+    if (chList) return cb(chList);
+    try {
+      tizen.tvchannel.getChannelList(function (l) { chList = l || []; cb(chList); },
+        function (e) { send("log", "channels: " + (e && e.name)); cb([]); }, "ALL", 0, 3000);
+    } catch (e) { cb([]); }
+  }
+  function currentCh() { try { return tizen.tvchannel.getCurrentChannel("MAIN"); } catch (e) { return null; } }
+  function currentProg() { try { return tizen.tvchannel.getCurrentProgram("MAIN"); } catch (e) { return null; } }
+  function chNum(c) { return c ? c.major + (c.minor > 0 ? "-" + c.minor : "") : ""; }
+  var tuned = { onsuccess: function () { banner(); }, onnosignal: function () { banner(said("ch_nosignal")); },
+    onprograminforeceived: function () { if (bannerEl && bannerEl.style.display !== "none") banner(); } };
+  function stepCh(d) {
+    try { tizen.tvchannel[d > 0 ? "tuneUp" : "tuneDown"](tuned, function () { banner(said("ch_failed")); }, "ALL", "MAIN"); }
+    catch (e) { banner(said("ch_failed")); }
+  }
+  function tuneTo(c) {
+    try { tizen.tvchannel.tune({ major: c.major, minor: c.minor }, tuned, function () { banner(said("ch_failed")); }, "MAIN"); }
+    catch (e) { banner(said("ch_failed")); }
+  }
+  function time(d) { try { return (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes(); } catch (e) { return ""; } }
+  function banner(note) {
+    if (!bannerEl) bannerEl = layer("osd-ch");
+    var c = currentCh(), p = currentProg(), when = "";
+    if (p && p.startTime) {
+      var st = p.startTime.getHours ? p.startTime : new Date(p.startTime);
+      when = time(st) + (p.duration ? "–" + time(new Date(st.getTime() + p.duration * 1000)) : "");
+    }
+    bannerEl.innerHTML = '<div class="num">' + esc(digits || chNum(c)) + "</div>" +
+      '<div class="txt"><b>' + esc(digits ? said("ch_typing") : (c && c.channelName) || said("live_tv")) + "</b>" +
+      (note ? "<small>" + esc(note) + "</small>" : p && p.title ? "<small>" + esc(p.title) + (when ? " · " + when : "") + "</small>" : "") + "</div>";
+    bannerEl.style.display = "flex";
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(function () { if (!digits) hide(bannerEl); }, 5000);
+  }
+  // typing a channel number on the remote's digits
+  var digits = "", digitTimer = null;
+  function digit(n) {
+    if (digits.length >= 4) digits = "";
+    digits += n; banner();
+    clearTimeout(digitTimer);
+    digitTimer = setTimeout(function () {
+      var want = parseInt(digits, 10); digits = "";
+      channels(function (l) {
+        var hit = l.filter(function (c) { return c.major === want; })[0];
+        if (hit) tuneTo(hit); else banner(said("ch_none"));
+      });
+    }, 1500);
+  }
+  // the channel list
+  var listI = 0;
+  function openList() {
+    channels(function (l) {
+      if (!l.length) { banner(said("ch_empty")); return; }
+      var c = currentCh();
+      listI = 0;
+      for (var i = 0; c && i < l.length; i++) if (l[i].major === c.major && l[i].minor === c.minor) { listI = i; break; }
+      listOn = true; hide(bannerEl); clearTimeout(bannerTimer); drawList();
+    });
+  }
+  function drawList() {
+    if (!listEl) listEl = layer("osd-list");
+    var l = chList || [], from = Math.max(0, Math.min(listI - 4, l.length - 9)), cur = currentCh(), html = "";
+    for (var i = from; i < Math.min(l.length, from + 9); i++) {
+      var c = l[i], on = cur && c.major === cur.major && c.minor === cur.minor;
+      html += '<div class="it' + (i === listI ? " focus" : "") + (on ? " on" : "") + '"><span class="n">' + esc(chNum(c)) + '</span><span class="nm">' + esc(c.channelName || "") + "</span></div>";
+    }
+    listEl.innerHTML = "<h2>" + esc(said("ch_list")) + "</h2>" + html + '<p class="shint">' + esc(said("ch_list_hint")) + "</p>";
+    listEl.style.display = "block";
+  }
+  function closeList() { listOn = false; hide(listEl); }
+
+  // volume: our own indicator, where the TV lets an app set the volume
+  var audioOk = false;
+  try { tizen.tvaudiocontrol.getVolume(); audioOk = true; } catch (e) { send("log", "tvaudiocontrol: " + e); }
+  function volShow() {
+    if (!volEl) volEl = layer("osd-vol");
+    var v = 0, mute = false;
+    try { v = tizen.tvaudiocontrol.getVolume(); mute = tizen.tvaudiocontrol.isMute(); } catch (e) {}
+    var spk = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/>' + (mute ? '<path d="M16 9l5 6M21 9l-5 6"/>' : '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/>') + "</svg>";
+    volEl.innerHTML = '<span class="ic">' + spk + '</span><span class="bar"><i style="width:' + (mute ? 0 : v) + '%"></i></span><span class="v">' + (mute ? "" : v) + "</span>";
+    volEl.style.display = "flex";
+    clearTimeout(volTimer);
+    volTimer = setTimeout(function () { hide(volEl); }, 2500);
+  }
+  var VOL = {};
+  if (audioOk) [["VolumeUp", function () { tizen.tvaudiocontrol.setVolumeUp(); }],
+    ["VolumeDown", function () { tizen.tvaudiocontrol.setVolumeDown(); }],
+    ["VolumeMute", function () { tizen.tvaudiocontrol.setMute(!tizen.tvaudiocontrol.isMute()); }]].forEach(function (k) {
+    try { tizen.tvinputdevice.registerKey(k[0]); VOL[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; } catch (e) {}
+  });
+  var DIG = {}, INFO = null;
+  "0123456789".split("").forEach(function (n) {
+    try { tizen.tvinputdevice.registerKey(n); DIG[tizen.tvinputdevice.getKey(n).code] = n; } catch (e) {}
+  });
+  try { tizen.tvinputdevice.registerKey("Info"); INFO = tizen.tvinputdevice.getKey("Info").code; } catch (e) {}
+  function keyName(code) { for (var k in KEYS) if (KEYS[k] === code) return k; return ""; }
+  var KEYS = {};
+  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide"].forEach(function (k) {
+    try { KEYS[k] = tizen.tvinputdevice.getKey(k).code; } catch (e) {}
+  });
+
+  // While our menus or a picture are up, the remote's keys are ours, before app.js sees them.
+  // Volume is ours everywhere in Couch TV.
   function isBackKey(e) { return e.keyCode === 10009 || e.keyCode === 27 || e.keyCode === 8; }
   function grab(e) {
-    if (!srcOn && !winOn) return;
-    e.preventDefault(); e.stopImmediatePropagation();
-    if (e.type !== "keydown") return;
-    if (winOn) {
-      var act = REMAP[e.keyCode];
-      if (isBackKey(e)) closeWindow();
-      else if (act) { closeWindow(); act(); }   // Source over an input: back to our menu
+    var code = e.keyCode;
+    if (VOL[code]) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (e.type === "keydown") { try { VOL[code](); } catch (x) {} volShow(); }
       return;
     }
-    if (e.keyCode === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
-    else if (e.keyCode === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
-    else if (e.keyCode === 13) pickSource();
-    else if (isBackKey(e)) closeSources();
+    if (!srcOn && !winOn && !listOn) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.type !== "keydown") return;
+    var k = keyName(code);
+    if (listOn) {
+      var n = (chList || []).length;
+      if (code === 38) { listI = (listI - 1 + n) % n; drawList(); }
+      else if (code === 40) { listI = (listI + 1) % n; drawList(); }
+      else if (code === 13) { var c = chList[listI]; closeList(); if (c) tuneTo(c); }
+      else if (isBackKey(e) || k === "ChannelList") closeList();
+      return;
+    }
+    if (winOn) {
+      var tv = watch && watch.type === "TV";
+      if (isBackKey(e)) { if (digits) { digits = ""; clearTimeout(digitTimer); hide(bannerEl); } else closeWindow(); }
+      else if (k === "Source") { closeWindow(); openSources(); }
+      else if (tv && (k === "ChannelUp" || code === 38)) stepCh(1);
+      else if (tv && (k === "ChannelDown" || code === 40)) stepCh(-1);
+      else if (tv && (k === "ChannelList" || code === 13)) openList();
+      else if (tv && DIG[code] !== undefined) digit(DIG[code]);
+      else if (tv && code === INFO) banner();
+      else if (k === "ChannelUp" || k === "ChannelDown" || k === "ChannelList") { closeWindow(); openLive(); }
+      else if (k === "Guide") { closeWindow(); launch("samsung.guide"); }
+      return;
+    }
+    if (code === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
+    else if (code === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
+    else if (code === 13) pickSource();
+    else if (isBackKey(e) || k === "Source") closeSources();
   }
   window.addEventListener("keydown", grab, true);
   window.addEventListener("keyup", grab, true);
 
   function launch(pkg) {
-    if (pkg === "samsung.livetv") { hideApp(); return true; }
+    if (pkg === "samsung.livetv") return openLive();
     if (pkg === "samsung.source") return openSources();
     var a = byPkg[pkg], m = MAP[pkg], sys = systemTile(pkg);
     var ids = sys ? sys.have.slice() : a ? [a.id] : [];
@@ -305,7 +470,7 @@
   // an input, another app) they do what Samsung made them do.
   var REMAP = {};
   [["Source", function () { if (!srcOn && !winOn) openSources(); }],
-   ["ChannelUp", hideApp], ["ChannelDown", hideApp], ["ChannelList", hideApp],
+   ["ChannelUp", openLive], ["ChannelDown", openLive], ["ChannelList", function () { openLive(); }],
    ["Guide", function () { launch("samsung.guide"); }]].forEach(function (k) {
     try { tizen.tvinputdevice.registerKey(k[0]); REMAP[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; }
     catch (e) { send("log", "registerKey " + k[0] + ": " + e); }

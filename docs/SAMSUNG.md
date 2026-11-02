@@ -78,6 +78,14 @@ TV on the computer:
   `tv.window`, so an install from before this needs reinstalling). Back returns to the home.
   Checked against stand-ins for those calls; not yet on the real TV.
 
+- **Watching inside Couch TV:** live TV now plays inside the app through the TV window, with
+  couch-tv's own channel banner (number, name, the programme and its times), channel list (OK or
+  the channel list key), channel up and down, typed channel numbers, and its own volume
+  indicator (tizen.tvchannel and tizen.tvaudiocontrol, privileges tv.channel and tv.audio: one
+  more reinstall). The remote's Home button still opens Smart Hub: no app may take it. Where the
+  TV will not show live TV in the app, the Live TV tile falls back to leaving Couch TV. Checked
+  against stand-ins for those calls; not yet on the real TV.
+
 ## What works and what does not
 
 | | Samsung |
