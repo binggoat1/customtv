@@ -68,6 +68,32 @@
       shown.push({ package: a.id, label: a.name });
     }
   });
+  // Samsung's own live TV, inputs and guide as tiles at the front of the row. Their ids, newest
+  // first, as a 2020 TV (Tizen 5.5) lists them in Home settings, About, System apps.
+  var tvIcon = function (path) {
+    return "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + path + "</svg>");
+  };
+  var SYSTEM = [
+    { package: "samsung.livetv", key: "live_tv", ids: ["com.samsung.tv.coba.livetv", "org.tizen.tv-viewer"],
+      icon: tvIcon('<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M9 2l3 3 3-3"/>') },
+    { package: "samsung.source", key: "sources", ids: ["com.samsung.tv.coba.source", "org.tizen.SMSourceAPP"],
+      icon: tvIcon('<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>') },
+    { package: "samsung.guide", key: "tv_guide", ids: ["org.tizen.epg"],
+      icon: tvIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>') }
+  ];
+  var sysById = {};
+  tizenApps.forEach(function (a) { sysById[a.id] = a; });
+  var said = function (k) { return window.I18N ? window.I18N.t(k) : k; };
+  SYSTEM.slice().reverse().forEach(function (x) {
+    var have = x.ids.filter(function (id) { return sysById[id]; });
+    if (!have.length) return;
+    x.have = have;
+    byPkg[x.package] = sysById[have[0]];
+    shown.unshift({ package: x.package, label: said(x.key) });
+  });
+  function systemTile(pkg) { return SYSTEM.filter(function (x) { return x.package === pkg; })[0] || null; }
+
   send("log", "apps on this TV: " + tizenApps.length + ", shown: " + shown.map(function (a) { return a.label; }).join(", "));
 
   function bridgeLaunch(pkg) {
@@ -79,8 +105,8 @@
   }
 
   function launch(pkg) {
-    var a = byPkg[pkg], m = MAP[pkg];
-    var ids = a ? [a.id] : [];
+    var a = byPkg[pkg], m = MAP[pkg], sys = systemTile(pkg);
+    var ids = sys ? sys.have.slice() : a ? [a.id] : [];
     if (m) (m.ids || []).concat(m.app ? [m.app] : []).forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
     if (!ids.length && /\./.test(pkg)) ids.push(pkg);
     if (!ids.length) return false;
@@ -95,6 +121,8 @@
   }
 
   function iconUrl(pkg) {
+    var sys = systemTile(pkg);
+    if (sys) return sys.icon;
     var m = MAP[pkg];
     if (m && m.logo) return "logos/" + pkg + ".png";
     var a = byPkg[pkg];
@@ -110,7 +138,10 @@
       var ota = window.COUCH_OTA && window.COUCH_OTA.on ? window.COUCH_OTA.version() : "";
       return "Samsung " + (v || "?") + (ota ? " · " + ota : "");
     },
-    apps: function () { return JSON.stringify(shown); },
+    // the live TV, sources and guide tiles take their names in the language picked now
+    apps: function () {
+      return JSON.stringify(shown.map(function (a) { var x = systemTile(a.package); return x ? { package: a.package, label: said(x.key) } : a; }));
+    },
     // Home settings, About, System apps: Samsung's own parts that look like live TV or the input
     // list, with their ids, so a tile can open them (the ids change between TV years)
     systemApps: function () {
@@ -127,6 +158,10 @@
       var sha = "";
       try { sha = localStorage.getItem("couch.ota.sha") || ""; } catch (e) {}
       return "https://raw.githubusercontent.com/" + m[1] + "/" + m[2] + "/" + (sha || m[3]) + "/" + path;
+    },
+    // the remote's keys this TV lets an app take (for remapping, e.g. Source), Home settings, About, System apps
+    keyNames: function () {
+      try { return tizen.tvinputdevice.getSupportedKeys().map(function (k) { return k.name; }).join(", "); } catch (e) { return ""; }
     },
     openApp: function (id) {
       try { tizen.application.launch(id, null, function (err) { send("log", "launch " + id + ": " + (err && err.name)); }); return true; }

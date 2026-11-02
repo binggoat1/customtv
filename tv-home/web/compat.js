@@ -86,6 +86,8 @@
   function start() {
     if (hasFlexGap()) return;
     document.documentElement.classList.add("no-flex-gap");
+    // the same engines run on slow TV chips: app.css drops animations, shadows and filters (.lite)
+    if (!/[?&]lite=0/.test(location.search)) document.documentElement.classList.add("lite");
     var sels = gapSelectors().join(",");
     if (!sels) return;
     // Each change only looks at the gap rows it can affect: the changed element itself, its parent,

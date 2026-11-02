@@ -51,11 +51,12 @@
 
   // Default order: YouTube, then Netflix, then the rest the way a household reaches for them.
   var APP_ORDER = [
+    "samsung.livetv", "samsung.source",   // Samsung: live TV and the inputs (samsung/app/tizen.js)
     "com.google.android.youtube.tv", "com.netflix.ninja", "au.net.abc.iview", "com.disney.disneyplus",
     "au.com.stan.and", "au.com.streamotion.ares.tv", "com.amazon.amazonvideo.livingroom",
     "com.sbs.ondemand.tv", "com.apple.atve.androidtv.appletv", "com.cbs.ca", "au.com.ninenow.ctv",
     "com.swm.live", "au.com.tenplay", "au.com.kayosports.tv", "au.com.foxtel.atv", "com.wbd.stream",
-    "com.spotify.tv.android", "com.google.android.youtube.tvmusic"
+    "com.spotify.tv.android", "com.google.android.youtube.tvmusic", "samsung.guide"
   ];
   // The TV's own tools go last, in this order, just before the screens.
   var APP_LAST = ["com.mediatek.wwtv.tvcenter", "com.android.vending", "com.android.tv.settings"];
@@ -870,6 +871,7 @@
 
   // ---------------- apps ----------------
   function tucked(a) {
+    if (/^samsung\./.test(a.package || "")) return false;   // Samsung live TV and sources tiles stay on home
     return TUCKED.indexOf(a.package) >= 0 || TUCKED_NAMES.test(a.name || "");
   }
   function isNew(pkg) { return newApps.indexOf(pkg) >= 0; }
@@ -1916,11 +1918,14 @@
       rows: function () {
         var list = [];
         try { list = JSON.parse(TV.systemApps()) || []; } catch (e) {}
-        if (!list.length) return [info("sys-none", t("apps_none"))];
-        return list.map(function (a, i) {
+        var keys = "";
+        try { keys = TV.keyNames ? TV.keyNames() : ""; } catch (e) {}
+        var head = keys ? [info("sys-keys", t("about_keys"), "", keys)] : [];
+        if (!list.length) return head.concat([info("sys-none", t("apps_none"))]);
+        return head.concat(list.map(function (a, i) {
           return { kind: "action", key: "sys:" + i, label: a.name || a.id, sub: a.id + (a.show ? "" : " · hidden"),
             act: function () { if (TV.openApp) TV.openApp(a.id); } };
-        });
+        }));
       } };
     SET.keyFocus = "sys:0";
   }

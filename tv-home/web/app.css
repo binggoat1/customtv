@@ -610,3 +610,16 @@ body {
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .settings, .smart { background: rgba(10, 8, 12, 0.94); }
 }
+
+/* Lite: older TVs (compat.js adds .lite where the browser has no flex gap: Samsung 2020-2021,
+   Chrome 69-76 engines on slow chips). Every move animated, large soft shadows and filtered
+   full-screen photos made each press feel like it was thinking. Here: moves are instant, no box
+   shadows, no image filters (the night dimming is a plain dark layer instead), the clock without
+   its drop shadow, and a shorter scene fade. */
+.lite *, .lite *::before, .lite *::after { transition: none !important; animation: none !important; box-shadow: none !important; }
+.lite .scene { transition: opacity 700ms linear !important; }
+.lite .gclock { filter: none !important; }
+.lite .scene .sbg, .lite .scene .fg, .lite .bg img, .lite .app .face img { filter: none !important; }
+.lite .night .scene::after, .lite .night .bg::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.28); pointer-events: none;
+}
