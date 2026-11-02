@@ -173,7 +173,8 @@
       srcMsg((threw ? said("src_reinstall") : said("src_failed")) + (detail ? " (" + detail + ")" : ""));
     });
   }
-  // Show an input (or live TV) through the TV window. Tries, in order: switch the window to the
+  // Show an input (or live TV) through the TV window, BEHIND the page (the default, FRONT, draws
+  // the picture over our banner, channel list and volume: seen on a 2020 TV). Tries, in order: switch the window to the
   // source then show it; show it as it is (the window may already be on live TV); the same with the
   // size as percentages. fail(error, threw, detail) when none works; detail says which step said what.
   function showSource(src, fail) {
@@ -192,11 +193,13 @@
     var steps = [
       function (next) {
         tizen.tvwindow.setSource(src, function () {
-          tizen.tvwindow.show(ok, function (e) { why("show", e); next(e); }, RECT, "MAIN");
+          tizen.tvwindow.show(ok, function (e) { why("show", e); next(e); }, RECT, "MAIN", "BEHIND");
         }, function (e) { why("setSource", e); next(e); }, "MAIN");
       },
-      function (next) { tizen.tvwindow.show(ok, function (e) { why("show as is", e); next(e); }, RECT, "MAIN"); },
-      function (next) { tizen.tvwindow.show(ok, function (e) { why("show %", e); next(e); }, ["0%", "0%", "100%", "100%"], "MAIN"); }
+      function (next) { tizen.tvwindow.show(ok, function (e) { why("show as is", e); next(e); }, RECT, "MAIN", "BEHIND"); },
+      function (next) { tizen.tvwindow.show(ok, function (e) { why("show %", e); next(e); }, ["0%", "0%", "100%", "100%"], "MAIN", "BEHIND"); },
+      // a TV that will not take "BEHIND": the picture then covers our banner and volume, but it plays
+      function (next) { tizen.tvwindow.show(ok, function (e) { why("show front", e); next(e); }, RECT, "MAIN"); }
     ];
     var threw = false;
     (function run(i, last) {
