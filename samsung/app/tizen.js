@@ -169,28 +169,59 @@
     var x = srcItems[srcI];
     if (!x) return;
     if (x.kind === "tv") { openLive(); return; }
-    showSource({ type: x.type, number: x.number }, function (e, threw) {
-      srcMsg(threw ? said("src_reinstall") : said("src_failed") + (e && e.name ? " (" + e.name + ")" : ""));
+    showSource({ type: x.type, number: x.number }, function (e, threw, detail) {
+      srcMsg((threw ? said("src_reinstall") : said("src_failed")) + (detail ? " (" + detail + ")" : ""));
     });
   }
+  // Show an input (or live TV) through the TV window. Tries, in order: switch the window to the
+  // source then show it; show it as it is (the window may already be on live TV); the same with the
+  // size as percentages. fail(error, threw, detail) when none works; detail says which step said what.
   function showSource(src, fail) {
-    var bad = function (e) { send("log", "tvwindow: " + (e && e.name)); fail(e, false); };
-    try {
-      tizen.tvwindow.setSource(src, function () {
-        tizen.tvwindow.show(function () {
-          closeSources(); closeList();
-          watch = src; winOn = true;
-          document.documentElement.classList.add("tvwin");
-          if (src.type === "TV") banner();
-        }, bad, RECT, "MAIN");
-      }, bad, "MAIN");
-    } catch (e) { send("log", "tvwindow threw " + e); fail(e, true); }
+    var tried = [];
+    var ok = function () {
+      closeSources(); closeList();
+      watch = src; winOn = true;
+      document.documentElement.classList.add("tvwin");
+      if (src.type === "TV") banner();
+    };
+    var why = function (step, e) {
+      var t = step + ": " + ((e && (e.name || "")) + (e && e.message ? " " + e.message : "") || String(e));
+      tried.push(t); send("log", "tvwindow " + t);
+      return e;
+    };
+    var steps = [
+      function (next) {
+        tizen.tvwindow.setSource(src, function () {
+          tizen.tvwindow.show(ok, function (e) { why("show", e); next(e); }, RECT, "MAIN");
+        }, function (e) { why("setSource", e); next(e); }, "MAIN");
+      },
+      function (next) { tizen.tvwindow.show(ok, function (e) { why("show as is", e); next(e); }, RECT, "MAIN"); },
+      function (next) { tizen.tvwindow.show(ok, function (e) { why("show %", e); next(e); }, ["0%", "0%", "100%", "100%"], "MAIN"); }
+    ];
+    var threw = false;
+    (function run(i, last) {
+      if (i >= steps.length) return fail(last, threw, tried.join(" / "));
+      try { steps[i](function (e) { run(i + 1, e); }); }
+      catch (e) { threw = threw || i === 0; why("threw", e); run(i + 1, e); }
+    })(0, null);
   }
-  // Live TV inside Couch TV; where the TV will not show it, back to the TV's own live TV
+  // Live TV inside Couch TV; where the TV will not show it, say why on screen for a few seconds,
+  // then go to the TV's own live TV
   function openLive() {
     if (watch && watch.type === "TV") { banner(); return true; }
-    showSource(tvSrc, function () { closeSources(); hideApp(); });
+    showSource(tvSrc, function (e, threw, detail) {
+      closeSources();
+      flash(said("live_failed") + (detail ? " (" + detail + ")" : ""));
+      setTimeout(hideApp, 6000);
+    });
     return true;
+  }
+  var flashEl = null, flashTimer = null;
+  function flash(text) {
+    if (!flashEl) flashEl = layer("osd-flash");
+    flashEl.textContent = text; flashEl.style.display = "block";
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(function () { hide(flashEl); }, 6000);
   }
   var tvSrc = { type: "TV", number: 1 };
   try {
