@@ -86,6 +86,13 @@ TV on the computer:
   TV will not show live TV in the app, the Live TV tile falls back to leaving Couch TV. Checked
   against stand-ins for those calls; not yet on the real TV.
 
+- **Coming up with the TV, no computer (experimental):** a 2020 TV does not reopen a sideloaded
+  app from standby, Autorun Last App or not. The app now runs in the background
+  (`background-support="enable"`) and watches its own timers: a tick minutes late means the TV
+  slept and woke, and it then asks to come to the front on its home screen (also when the TV
+  prelaunches it hidden, or a screen-on listener fires). Each try is written to Home settings,
+  About, System apps, "Coming up with the TV".
+
 ## What works and what does not
 
 | | Samsung |

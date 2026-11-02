@@ -1967,6 +1967,9 @@
         var keys = "";
         try { keys = TV.keyNames ? TV.keyNames() : ""; } catch (e) {}
         var head = keys ? [info("sys-keys", t("about_keys"), "", keys)] : [];
+        var woke = "";
+        try { woke = TV.wakeLog ? TV.wakeLog() : ""; } catch (e) {}
+        head.unshift(info("sys-wake", t("about_wake"), "", woke || t("about_wake_none")));
         if (!list.length) return head.concat([info("sys-none", t("apps_none"))]);
         return head.concat(list.map(function (a, i) {
           return { kind: "action", key: "sys:" + i, label: a.name || a.id, sub: a.id + (a.show ? "" : " · hidden"),

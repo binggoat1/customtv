@@ -255,16 +255,54 @@
   // at power on so they open fast): ask to come to the front, so switching the TV on lands on
   // the Couch TV home instead of Samsung's live TV. Experimental: a TV may refuse it, and then
   // nothing changes.
-  (function toFront() {
-    var hiddenAtStart = false;
-    try { hiddenAtStart = document.hidden || document.visibilityState === "hidden"; } catch (x) {}
-    send("log", "started " + (hiddenAtStart ? "hidden (prelaunch)" : "on screen"));
-    if (!hiddenAtStart) return;
-    setTimeout(function () {
-      try { tizen.application.launch(SELF, function () { send("log", "to front: ok"); }, function (e) { send("log", "to front: " + (e && e.name)); }); }
-      catch (e) { send("log", "to front threw " + e); }
-    }, 1500);
-  })();
+  // ---------- coming up with the TV ----------
+  // Samsung does not reopen a sideloaded app when the TV comes out of standby. Couch TV keeps
+  // running in the background (config.xml background-support) and notices the TV waking: its
+  // timers stop while the TV sleeps, so a tick that comes minutes late means the TV just woke
+  // (and the screen listener, where the TV has one). Then it asks to come to the front, on its
+  // home screen. What happened is kept (couch.wakelog) and shown in Home settings, About,
+  // System apps, since a TV may refuse any of it.
+  function wakeLog(t) {
+    var l = [];
+    try { l = JSON.parse(localStorage.getItem("couch.wakelog") || "[]"); } catch (x) {}
+    var d = new Date(), pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    l.unshift(pad(d.getDate()) + "." + pad(d.getMonth() + 1) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " " + t);
+    try { localStorage.setItem("couch.wakelog", JSON.stringify(l.slice(0, 8))); } catch (x) {}
+    send("log", "wake: " + t);
+  }
+  function toFront(why) {
+    if (winOn) closeWindow();   // the TV comes up on the Couch TV home, not on a channel
+    closeSources(); closeList();
+    var hidden = false;
+    try { hidden = document.hidden; } catch (x) {}
+    if (!hidden) { wakeLog(why + ", already on screen"); return; }
+    try {
+      tizen.application.launch(SELF, function () { wakeLog(why + ", to front: ok"); }, function (e) {
+        wakeLog(why + ", to front: " + (e && e.name));
+        try {
+          tizen.application.launchAppControl(new tizen.ApplicationControl("http://tizen.org/appcontrol/operation/default", null, null, null, null), SELF,
+            function () { wakeLog("app control: ok"); }, function (e2) { wakeLog("app control: " + (e2 && e2.name)); });
+        } catch (x) { wakeLog("app control threw"); }
+      });
+    } catch (e) { wakeLog(why + ", to front threw " + e); }
+  }
+  // started hidden by the TV at power on (prelaunch.support)
+  try { if (document.hidden) setTimeout(function () { toFront("started hidden"); }, 1500); } catch (x) {}
+  // a late tick: the TV slept and woke
+  var lastTick = Date.now();
+  setInterval(function () {
+    var now = Date.now(), gap = now - lastTick;
+    lastTick = now;
+    if (gap > 45000) setTimeout(function () { toFront("woke after " + Math.round(gap / 60000) + " min"); }, 2500);
+  }, 5000);
+  // the screen coming on, where the TV says so
+  try {
+    if (tizen.power && tizen.power.setScreenStateChangeListener) {
+      tizen.power.setScreenStateChangeListener(function (prev, now) {
+        if (now === "SCREEN_NORMAL" && prev !== "SCREEN_NORMAL") setTimeout(function () { toFront("screen on"); }, 2500);
+      });
+    }
+  } catch (x) { send("log", "screen listener: " + x); }
 
   // channels
   var chList = null;
@@ -513,6 +551,8 @@
       try { sha = localStorage.getItem("couch.ota.sha") || ""; } catch (e) {}
       return "https://raw.githubusercontent.com/" + m[1] + "/" + m[2] + "/" + (sha || m[3]) + "/" + path;
     },
+    // what happened the last times the TV woke (see "coming up with the TV")
+    wakeLog: function () { try { return JSON.parse(localStorage.getItem("couch.wakelog") || "[]").join("  ·  "); } catch (x) { return ""; } },
     // the remote's keys this TV lets an app take (for remapping, e.g. Source), Home settings, About, System apps
     keyNames: function () {
       try { return tizen.tvinputdevice.getSupportedKeys().map(function (k) { return k.name; }).join(", "); } catch (e) { return ""; }
