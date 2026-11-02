@@ -659,3 +659,13 @@ html.tvwin body > .osd { visibility: visible !important; }
 .osd-vol .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0.25rem; background: #fff; }
 .osd-vol .v { min-width: 2.5rem; font-size: 1.625rem; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
 .osd-flash { left: 50%; bottom: 4rem; width: 70rem; margin-left: -35rem; padding: 1.25rem 2rem; border-radius: 1.5rem; background: rgba(120, 24, 24, 0.92); font-size: 1.5rem; line-height: 2.125rem; font-weight: 600; }
+
+/* All apps opening from the dock (down from the dock) and closing again (up from its top row):
+   a short rise and fade on transform and opacity only, cheap enough for the lite mode too */
+@keyframes gridIn { from { opacity: 0; transform: translateY(2.5rem); } to { opacity: 1; transform: none; } }
+@keyframes gridBack { from { opacity: 0.4; transform: translateY(-1.25rem); } to { opacity: 1; transform: none; } }
+#grid.grid-in { animation: gridIn 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+#grid.grid-back { animation: gridBack 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+html.lite #grid.grid-in { animation: gridIn 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important; }
+html.lite #grid.grid-back { animation: gridBack 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important; }
+@media (prefers-reduced-motion: reduce) { #grid.grid-in, #grid.grid-back, html.lite #grid.grid-in, html.lite #grid.grid-back { animation: none !important; } }

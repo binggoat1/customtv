@@ -56,6 +56,9 @@
   // A few store-installed extras are Samsung's own and stay hidden.
   var STORE = /^[A-Za-z0-9]{10}$/;
   var HIDE = /^(e-Manual|Security Center|Samsung Promotion|Smarthub Connection Test)$/i;
+  // Store apps' background parts the TV lists as apps of their own (seen on a 2020 TV:
+  // ContinueWatchingBGService, Max Worker, DisneyPlusPreviewService), with Tizen's default icon
+  var BLOAT = /(service|worker|daemon|preview|updater|helper|agent|widget|bgservice)/i;
   var byPkg = {}, shown = [];
   tizenApps.forEach(function (a) {
     if (a.id === SELF || a.packageId === SELF.split(".")[0]) return;
@@ -63,24 +66,27 @@
     if (pkg && !byPkg[pkg]) {
       byPkg[pkg] = a;
       shown.push({ package: pkg, label: MAP[pkg].name || a.name });
-    } else if (!pkg && a.show && STORE.test(a.packageId || "") && !HIDE.test(a.name || "") && !byPkg[a.id]) {
+    } else if (!pkg && a.show && STORE.test(a.packageId || "") && !HIDE.test(a.name || "") && !BLOAT.test(a.name || "") && !byPkg[a.id]) {
       byPkg[a.id] = a;
       shown.push({ package: a.id, label: a.name });
     }
   });
   // Samsung's own live TV, inputs and guide as tiles at the front of the row. Their ids, newest
   // first, as a 2020 TV (Tizen 5.5) lists them in Home settings, About, System apps.
-  var tvIcon = function (path) {
-    return "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
-      'stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + path + "</svg>");
+  // full-colour tiles like the store apps' icons: a gradient square with a white symbol
+  var tvIcon = function (top, bottom, path) {
+    return "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + top + '"/><stop offset="1" stop-color="' + bottom + '"/></linearGradient></defs>' +
+      '<rect width="100" height="100" rx="22" fill="url(#g)"/><g transform="translate(22 22) scale(2.333)" fill="none" stroke="#fff" ' +
+      'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + path + "</g></svg>");
   };
   var SYSTEM = [
     { package: "samsung.livetv", key: "live_tv", ids: ["com.samsung.tv.coba.livetv", "org.tizen.tv-viewer"],
-      icon: tvIcon('<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M9 2l3 3 3-3"/>') },
+      icon: tvIcon("#ff6a6a", "#d4213f", '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 21h6M9 2.5l3 3 3-3"/>') },
     { package: "samsung.source", key: "sources", ids: ["com.samsung.tv.coba.source", "org.tizen.SMSourceAPP"],
-      icon: tvIcon('<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>') },
+      icon: tvIcon("#34d3c3", "#0b8a9c", '<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>') },
     { package: "samsung.guide", key: "tv_guide", ids: ["org.tizen.epg"],
-      icon: tvIcon('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>') }
+      icon: tvIcon("#ffbd4a", "#ee7414", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>') }
   ];
   var sysById = {};
   tizenApps.forEach(function (a) { sysById[a.id] = a; });

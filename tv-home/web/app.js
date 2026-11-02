@@ -1264,6 +1264,8 @@
       if (dx) {
         var nx = g + dx;
         if (nx >= 0 && nx < gridEls.length && Math.floor(nx / GRID_COLS) === row) g = nx;
+      } else if (dy < 0 && row === 0 && NIGHT && expanded) {
+        setExpanded(false);   // up from the top of All apps: back to the dock, on the same app
       } else if (dy < 0 && row === 0) {
         if (cards.length) zone = "shelf";
         else if (peopleOn()) toPeople();
@@ -1272,9 +1274,25 @@
         g -= GRID_COLS;
       } else if (row < lastRow) {
         g = Math.min(g + GRID_COLS, gridEls.length - 1);
+      } else if (NIGHT && !expanded && !lift) {
+        setExpanded(true);    // down from the dock: every app, the focus staying on the same one
       }
     }
     paintFocus();
+  }
+  // Open or close All apps from the dock, keeping the focus on the app it was on, with a short
+  // rise-and-fade (app.css, .grid-in) instead of the rows simply appearing.
+  function setExpanded(on) {
+    var cur = gridItems[g], key = cur ? (cur.package || cur.kind) : null;
+    expanded = on;
+    renderGrid();
+    var at = -1;
+    for (var i = 0; key && i < gridItems.length; i++) if ((gridItems[i].package || gridItems[i].kind) === key) { at = i; break; }
+    g = at >= 0 ? at : 0;
+    var grid = $("grid");
+    grid.classList.remove("grid-in", "grid-back");
+    void grid.offsetWidth;   // restart the animation
+    grid.classList.add(on ? "grid-in" : "grid-back");
   }
 
   // Start on the people switch, so the first press picks who is watching.
