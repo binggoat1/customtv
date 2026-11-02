@@ -66,6 +66,9 @@ TV on the computer:
   pixel, and no press draws a frame without the spacing (the timer version did, 4 to 9 of 13).
   (Pages opened as file:// cannot read their CSS rules, so compat.js does nothing there: test over
   http.)
+- **Updates over the air, on the same 2020 TV:** after installing the `--update` build, a push to the
+  branch reached the TV with no computer. Home settings, About showed the new commit
+  (`Samsung 1.0.0 · 58884eb`) after the app was opened twice.
 
 ## What works and what does not
 
