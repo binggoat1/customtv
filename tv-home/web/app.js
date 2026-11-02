@@ -1867,13 +1867,30 @@
     try { ver = TV && TV.version ? TV.version() : ""; } catch (e) {}
     var run = ALONE ? "run_alone" : OFFLINE ? "run_off" : data.bridge === false ? "run_quiet" : "run_bridge";
     return [
-      info("ver", t("about_version"), ver || t("about_web")),
+      info("ver", t("about_version"), ver || t("about_web"))
+    ].concat(TV && TV.systemApps ? [{ kind: "nav", key: "sysapps", label: t("about_system_apps"), sub: t("about_system_apps_sub"),
+      act: openSystemApps }] : []).concat([
       info("code", t("about_code"), REPO_URL),
       info("run", t("about_running"), t(run)),
       info("kept", t("about_kept"), t(OFFLINE || data.bridge === false ? "kept_tv" : "kept_both")),
       { kind: "action", key: "reset", label: t("about_reset"), sub: t("about_reset_sub"), danger: true, confirmText: t("confirm_reset"),
         act: resetSettings }
-    ];
+    ]);
+  }
+  // Samsung: the TV's own system apps that look like live TV or inputs, with their ids. OK tries
+  // to open one, so a photo of this list says which id a Live TV or Sources tile should use.
+  function openSystemApps() {
+    SET.sub = { back: "sysapps", crumb: t("sec_about"), title: function () { return t("about_system_apps"); },
+      rows: function () {
+        var list = [];
+        try { list = JSON.parse(TV.systemApps()) || []; } catch (e) {}
+        if (!list.length) return [info("sys-none", t("apps_none"))];
+        return list.map(function (a, i) {
+          return { kind: "action", key: "sys:" + i, label: a.name || a.id, sub: a.id + (a.show ? "" : " · hidden"),
+            act: function () { if (TV.openApp) TV.openApp(a.id); } };
+        });
+      } };
+    SET.keyFocus = "sys:0";
   }
   // Back to config.json for everything but the people and the apps (which have their own lists).
   function resetSettings() {

@@ -111,6 +111,18 @@
       return "Samsung " + (v || "?") + (ota ? " · " + ota : "");
     },
     apps: function () { return JSON.stringify(shown); },
+    // Home settings, About, System apps: Samsung's own parts that look like live TV or the input
+    // list, with their ids, so a tile can open them (the ids change between TV years)
+    systemApps: function () {
+      var want = /tv|source|surs|input|hdmi|viewer|live|channel|canal|tuner|epg|guide|ghid|program/i;
+      return JSON.stringify(tizenApps.filter(function (a) {
+        return !STORE.test(a.packageId || "") && (want.test(a.name || "") || want.test(a.id || ""));
+      }).map(function (a) { return { name: a.name || "", id: a.id, show: !!a.show }; }));
+    },
+    openApp: function (id) {
+      try { tizen.application.launch(id, null, function (err) { send("log", "launch " + id + ": " + (err && err.name)); }); return true; }
+      catch (e) { return false; }
+    },
     launch: launch,
     iconUrl: iconUrl,
     bannerUrl: function () { return null; },
