@@ -168,6 +168,11 @@
     // no "quick" from an older bridge: the sleep timer, and the picture switch where the TV has one
     QUICK = (Array.isArray(ST.quick) ? ST.quick : TVCFG.quick || ["sleep", "picture"])
       .filter(function (q, i, a) { return QUICK_ALL.indexOf(q) >= 0 && a.indexOf(q) === i; });
+    // A TV with no computer (a Samsung on its own) cannot run the sleep timer or the picture switch,
+    // which left the top row empty. Unless the buttons were picked in Home settings: the input list
+    // where the TV can open it, and the look switch.
+    if (!Array.isArray(ST.quick) && ALONE && !QUICK.some(function (q) { return q === "look" || (q === "input" && nativeInputs()); }))
+      QUICK = (nativeInputs() ? ["input"] : []).concat(["look"]);
     THEME = (Q.match(/[?&]theme=([a-z]+)/) || [])[1] || lookSetting();
     if (THEME !== "classic") THEME = "night";
     NIGHT = THEME === "night";
@@ -611,6 +616,7 @@
   var sleepEnds = null, picMode = null, picCanSet = false, picShown = false, picBusy = false, picModes = null;
   var qi = 0, menuI = 0, noteTimer = null, quickReady = false, quickEls = [];
 
+  window.COUCH_NOTE = function (text) { note(text); };   // samsung/app/tizen.js: an app the TV would not open
   function note(text) {
     clearTimeout(noteTimer);
     $("quick-note").textContent = text || "";

@@ -110,14 +110,42 @@
     if (m) (m.ids || []).concat(m.app ? [m.app] : []).forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
     if (!ids.length && /\./.test(pkg)) ids.push(pkg);
     if (!ids.length) return false;
+    var lastErr = "";
     (function attempt(i) {
-      if (i >= ids.length) { send("log", "launch failed for " + pkg + ", asking the bridge"); bridgeLaunch(pkg); return; }
-      try {
-        tizen.application.launch(ids[i], function () { send("log", "launched " + ids[i]); },
-          function (err) { send("log", "launch " + ids[i] + ": " + (err && err.name)); attempt(i + 1); });
-      } catch (e) { send("log", "launch " + ids[i] + " threw " + e); attempt(i + 1); }
+      if (i >= ids.length) {
+        send("log", "launch failed for " + pkg + ", asking the bridge");
+        if (sys) return systemFallback(sys, lastErr);
+        bridgeLaunch(pkg);
+        return;
+      }
+      var next = function (err) {
+        lastErr = (err && (err.name || err.message)) || String(err || "");
+        send("log", "launch " + ids[i] + ": " + lastErr);
+        // Samsung's own parts sometimes refuse a plain launch but take an app control
+        if (sys && !next.tried) { next.tried = true; return byControl(ids[i], function () { attempt(i + 1); }); }
+        attempt(i + 1);
+      };
+      try { tizen.application.launch(ids[i], function () { send("log", "launched " + ids[i]); }, next); }
+      catch (e) { next(e); }
     })(0);
     return true;
+  }
+
+  function byControl(id, fail) {
+    try {
+      var ctl = new tizen.ApplicationControl("http://tizen.org/appcontrol/operation/default", null, null, null, null);
+      tizen.application.launchAppControl(ctl, id, function () { send("log", "app control launched " + id); }, function (e) {
+        send("log", "app control " + id + ": " + (e && e.name)); fail();
+      });
+    } catch (e) { fail(); }
+  }
+  // Live TV that will not open: leave Couch TV, and the TV goes back to what it showed before,
+  // the channel or the HDMI input. Sources and the guide: say so on screen.
+  function systemFallback(sys, err) {
+    if (sys.package === "samsung.livetv") {
+      try { tizen.application.getCurrentApplication().exit(); return; } catch (e) {}
+    }
+    if (window.COUCH_NOTE) window.COUCH_NOTE(said(sys.package === "samsung.source" ? "sources_blocked" : "app_blocked") + (err ? " (" + err + ")" : ""));
   }
 
   function iconUrl(pkg) {
@@ -172,9 +200,9 @@
     bannerUrl: function () { return null; },
     kept: function (k) { try { return localStorage.getItem("tvos." + k); } catch (e) { return null; } },
     keep: function (k, v) { try { localStorage.setItem("tvos." + k, v); } catch (e) {} },
-    // the input button goes through the bridge (it presses Source); a web app cannot open that list
-    canOpenInputs: function () { return false; },
-    openInputs: function () { return false; }
+    // the input button: Samsung's own input list, where this TV has it (the Sources tile)
+    canOpenInputs: function () { return !!systemTile("samsung.source") && !!systemTile("samsung.source").have; },
+    openInputs: function () { return launch("samsung.source"); }
   };
 
   // ---------- the remote ----------
