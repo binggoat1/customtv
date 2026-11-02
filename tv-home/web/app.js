@@ -349,8 +349,20 @@
     { id: "golden", photo: "scene-golden", fg: true, glass: true },
     { id: "water", photo: "scene-water", fg: false, glass: true, water: 0.55 },   // the underside of the surface
     { id: "fog", photo: "scene-fog", fg: true, glass: true },
-    { id: "dawn", photo: "scene-dawn", fg: true, glass: true }
+    { id: "dawn", photo: "scene-dawn", fg: true, glass: true },
+    // The Classic look's Creative Commons photos (backgrounds/CREDITS.md) as scenes too, laid out like
+    // your own scenes (mine: true, the clock where the sky is calm). Their glass copies came after the
+    // first Samsung installs, so a TV without the file takes it from GitHub (remoteGlass, TV.assetUrl).
+    photoScene("storm", "albury-storm", "Thennicke", "centre", 0.14, 0.36),
+    photoScene("beach", "aresquiers-beach", "Christian Ferrer", "centre", 0.12, 0.3),
+    photoScene("valley", "grose-valley", "Diliff", "centre", 0.12, 0.32),
+    photoScene("pavement", "tessellated-pavement", "JJ Harrison", "centre", 0.12, 0.3),
+    photoScene("paddy", "vang-vieng-sunset", "Basile Morin", "centre", 0.12, 0.32)
   ];
+  function photoScene(id, photo, by, x, y, size) {
+    return { id: id, photo: photo, by: by, fg: false, glass: true, remoteGlass: true, mine: true, nameKey: "scene_" + id,
+      x: x, y: y, size: size, inter: false, weight: 600, below: false, dark: false };
+  }
   var BUILT_IN = SCENE_LIB.slice();   // readConfig() adds your own scenes to SCENE_LIB
   var SCENES = SCENE_LIB.slice(), SCENE_MS = 20000;
   var scene = 0, sceneEls = [], glassShown = "";
@@ -410,7 +422,7 @@
       var pick = (HOME.scenes || []).filter(function (id, i, a) { return lib.indexOf(id) >= 0 && a.indexOf(id) === i; });
       if (!pick.length) pick = builtIn;
       order = pick.concat(ids.filter(function (id) { return pick.indexOf(id) < 0; }));
-      off = builtIn.filter(function (id) { return pick.indexOf(id) < 0; });
+      off = builtIn.filter(function (id) { var x = sceneById(id); return pick.indexOf(id) < 0 && !(x && x.nameKey); });
     }
     return { order: order, off: off, all: all };
   }
@@ -458,11 +470,30 @@
   function readyScene(i) {
     var s = SCENES[i], el = sceneEls[i];
     if (!el.classList.contains("ready")) {
-      el.querySelector(".sbg").src = s.src || "backgrounds/" + s.photo + ".jpg";
+      var bg = el.querySelector(".sbg");
+      bg.src = s.src || "backgrounds/" + s.photo + ".jpg";
+      // decode now, while the scene is still hidden: decoding a full-screen photo in the middle of
+      // the fade is what made older TVs stutter when the scene changed
+      if (bg.decode) bg.decode().then(null, function () {});
       if (s.fg) el.querySelector(".fg").src = "backgrounds/" + s.photo + "-fg.webp";
       el.classList.add("ready");
+      if (s.remoteGlass && !s.glassChecked) checkGlass(s);
     }
     drawClocks(el, s, glassShown);
+  }
+
+  // A scene's glass copy that this TV's app does not have yet: take it from GitHub instead.
+  function checkGlass(s) {
+    s.glassChecked = true;
+    var im = new Image();
+    im.onerror = function () {
+      var u = null;
+      try { u = TV && TV.assetUrl ? TV.assetUrl("tv-home/web/backgrounds/" + s.photo + "-glass.jpg") : null; } catch (e) {}
+      if (!u) return;
+      s.glassUrl = u;
+      sceneEls.forEach(function (el, i) { if (SCENES[i] === s && el.classList.contains("ready")) drawClocks(el, s, glassShown); });
+    };
+    im.src = "backgrounds/" + s.photo + "-glass.jpg";
   }
 
   function drawClocks(el, s, hm) {
@@ -472,7 +503,7 @@
       var c = cs[k];
       c.innerHTML = '<span class="fill">' + hm + '</span><span class="sheen">' + hm + '</span><span class="rim">' + hm + "</span>";
       var f = c.firstChild;
-      f.style.backgroundImage = s.src ? cssUrl(s.src) : "url(backgrounds/" + s.photo + (s.glass ? "-glass" : "") + ".jpg)";
+      f.style.backgroundImage = s.src ? cssUrl(s.src) : s.glassUrl ? cssUrl(s.glassUrl) : "url(backgrounds/" + s.photo + (s.glass ? "-glass" : "") + ".jpg)";
       f.style.backgroundPosition = -(c.offsetLeft + f.offsetLeft) + "px " + -(c.offsetTop + f.offsetTop) + "px";
     }
     if (s.water) {   // above the waterline sharp, below it the blurred reflection
@@ -1591,7 +1622,8 @@
     st.order.forEach(function (id) {
       var sc = sceneById(id);
       if (!sc) return;
-      var label = sc.own ? t("scene_photo", { n: sc.n }) : sc.mine ? sc.name || t("scene_mine", { n: sc.n }) : t("scene_" + id);
+      var label = sc.own ? t("scene_photo", { n: sc.n }) : sc.nameKey ? t(sc.nameKey) + "  ·  " + sc.by :
+        sc.mine ? sc.name || t("scene_mine", { n: sc.n }) : t("scene_" + id);
       rows.push({ kind: "check", key: "scene:" + id, label: label,
         thumb: sc.own ? sc.src : "backgrounds/" + sc.photo + ".jpg", checked: st.off.indexOf(id) < 0,
         act: function () { toggleScene(id); }, move: function (d) { moveScene(id, d); } });

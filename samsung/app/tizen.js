@@ -119,6 +119,15 @@
         return !STORE.test(a.packageId || "") && (want.test(a.name || "") || want.test(a.id || ""));
       }).map(function (a) { return { name: a.name || "", id: a.id, show: !!a.show }; }));
     },
+    // a file from the GitHub commit this app updated itself to (ota.js), for pictures that came after
+    // this TV's install; null when the app does not update itself
+    assetUrl: function (path) {
+      var m = /^([\w.-]+)\/([\w.-]+)@(.+)$/.exec(S.update || "");
+      if (!m) return null;
+      var sha = "";
+      try { sha = localStorage.getItem("couch.ota.sha") || ""; } catch (e) {}
+      return "https://raw.githubusercontent.com/" + m[1] + "/" + m[2] + "/" + (sha || m[3]) + "/" + path;
+    },
     openApp: function (id) {
       try { tizen.application.launch(id, null, function (err) { send("log", "launch " + id + ": " + (err && err.name)); }); return true; }
       catch (e) { return false; }

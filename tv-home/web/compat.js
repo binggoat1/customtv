@@ -104,6 +104,12 @@
       }
       for (var i = 0; i < boxes.length; i++) if (boxes[i].isConnected !== false) fix(boxes[i]);
     }
+    function sameBut(a, b) {
+      var skip = /^(scene|mine)-/;
+      var x = String(a || "").split(/\s+/).filter(function (k) { return k && !skip.test(k); }).sort().join(" ");
+      var y = String(b || "").split(/\s+/).filter(function (k) { return k && !skip.test(k); }).sort().join(" ");
+      return x === y;
+    }
     function later() { if (!queued) { queued = true; setTimeout(run, 0); } }
     run();
     // app.js builds the shelves and lists after this and changes classes as focus moves
@@ -112,6 +118,9 @@
         var m = list[i], el = m.target;
         mark(el);
         mark(el.parentNode);
+        // the page's own class changes with every scene (scene-*, mine-*), which moves the clock and
+        // date but no gap: re-checking every row then made the scene change stutter on older TVs
+        if (m.type === "attributes" && el === document.documentElement && sameBut(m.oldValue, el.className)) continue;
         // a new class can show or hide what is inside; added nodes bring their own rows
         var roots = m.type === "childList" ? m.addedNodes : [el];
         for (var j = 0; j < roots.length; j++) {
@@ -125,7 +134,7 @@
       // right away, not on a timer: this runs after app.js's change and before the TV draws it,
       // so a list never shows for a frame without its spacing and then jumps
       if (dirty.length) run();
-    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ["class"] });
     window.addEventListener("resize", function () { all = true; later(); });
   }
 

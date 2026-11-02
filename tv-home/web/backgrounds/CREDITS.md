@@ -11,6 +11,10 @@ From Wikimedia Commons, used under their Creative Commons licences. Resized and 
 | aresquiers-beach.jpg | Aresquiers beach at sunset, France | Christian Ferrer | CC BY 4.0 | https://commons.wikimedia.org/wiki/File:Sunset_on_the_Aresquiers_beach.jpg |
 | vang-vieng-sunset.jpg | Sunset over paddy fields, Vang Vieng, Laos | Basile Morin | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Colorful_sky_with_orange_clouds_reflecting_in_the_water_of_a_paddy_field,_at_sunset,_Vang_Vieng,_Laos.jpg |
 
+The Night look also uses these five photos as scenes. `<file>-glass.jpg` next to each is a
+blurred, brightened copy of that photo (the clock's frosted fill), shared under the same licence as
+the photo it comes from, with the same credit.
+
 ## Scene backgrounds (the default Night look)
 
 `scene-night.jpg`, `scene-golden.jpg`, `scene-water.jpg`, `scene-fog.jpg` and `scene-dawn.jpg` were
