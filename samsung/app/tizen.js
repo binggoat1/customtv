@@ -55,7 +55,7 @@
   // 10 character package id (Tubi is 3KA0pm7a7V); system ones are org.tizen.* or com.samsung.*.
   // A few store-installed extras are Samsung's own and stay hidden.
   var STORE = /^[A-Za-z0-9]{10}$/;
-  var HIDE = /^(e-Manual|Security Center|Samsung Promotion|Smarthub Connection Test)$/i;
+  var HIDE = /^(e-Manual|Security Center|Samsung Promotion|Smarthub Connection Test|TVDeviceCare|Eden)$/i;
   // Store apps' background parts the TV lists as apps of their own (seen on a 2020 TV:
   // ContinueWatchingBGService, Max Worker, DisneyPlusPreviewService), with Tizen's default icon
   var BLOAT = /(service|worker|daemon|preview|updater|helper|agent|widget|bgservice)/i;
@@ -83,7 +83,8 @@
   var SYSTEM = [
     { package: "samsung.livetv", key: "live_tv", ids: ["com.samsung.tv.coba.livetv", "org.tizen.tv-viewer"],
       icon: tvIcon("#ff6a6a", "#d4213f", '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 21h6M9 2.5l3 3 3-3"/>') },
-    { package: "samsung.source", key: "sources", ids: ["com.samsung.tv.coba.source", "org.tizen.SMSourceAPP"],
+    // no tile: the remote's Source button and the top row's input button open our Sources menu
+    { package: "samsung.source", key: "sources", tile: false, ids: ["com.samsung.tv.coba.source", "org.tizen.SMSourceAPP"],
       icon: tvIcon("#34d3c3", "#0b8a9c", '<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>') },
     { package: "samsung.guide", key: "tv_guide", ids: ["org.tizen.epg"],
       icon: tvIcon("#ffbd4a", "#ee7414", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>') }
@@ -96,7 +97,7 @@
     if (!have.length) return;
     x.have = have;
     byPkg[x.package] = sysById[have[0]];
-    shown.unshift({ package: x.package, label: said(x.key) });
+    if (x.tile !== false) shown.unshift({ package: x.package, label: said(x.key) });
   });
   function systemTile(pkg) { return SYSTEM.filter(function (x) { return x.package === pkg; })[0] || null; }
 
