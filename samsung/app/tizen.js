@@ -257,7 +257,9 @@
   }
   function currentCh() { try { return tizen.tvchannel.getCurrentChannel("MAIN"); } catch (e) { return null; } }
   function currentProg() { try { return tizen.tvchannel.getCurrentProgram("MAIN"); } catch (e) { return null; } }
-  function chNum(c) { return c ? c.major + (c.minor > 0 ? "-" + c.minor : "") : ""; }
+  // only real sub-channels (ATSC style, 5-1): cable and DVB channels have none, and Samsung then
+  // gives a filler such as 65534 (seen on a 2020 TV in Romania: "3-65534")
+  function chNum(c) { return c ? c.major + (c.minor > 0 && c.minor < 1000 ? "-" + c.minor : "") : ""; }
   var tuned = { onsuccess: function () { banner(); }, onnosignal: function () { banner(said("ch_nosignal")); },
     onprograminforeceived: function () { if (bannerEl && bannerEl.style.display !== "none") banner(); } };
   function stepCh(d) {
