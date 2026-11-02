@@ -103,6 +103,13 @@
   }
 
   window.TVOS = {
+    // Home settings, About: the app's own version, and the GitHub commit it runs when it updated itself (ota.js)
+    version: function () {
+      var v = "";
+      try { v = tizen.application.getCurrentApplication().appInfo.version; } catch (e) {}
+      var ota = window.COUCH_OTA && window.COUCH_OTA.on ? window.COUCH_OTA.version() : "";
+      return "Samsung " + (v || "?") + (ota ? " · " + ota : "");
+    },
     apps: function () { return JSON.stringify(shown); },
     launch: launch,
     iconUrl: iconUrl,
