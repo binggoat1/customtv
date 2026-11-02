@@ -188,6 +188,7 @@
     var ok = function () {
       closeSources(); closeList();
       watch = src; winOn = true;
+      try { localStorage.setItem("couch.watching", JSON.stringify(src)); } catch (x) {}
       document.documentElement.classList.add("tvwin");
       if (src.type === "TV") banner();
     };
@@ -239,12 +240,27 @@
     }, function () {});
   } catch (e) {}
   function closeWindow() {
+    try { localStorage.removeItem("couch.watching"); } catch (x) {}
     winOn = false; watch = null; digits = ""; clearTimeout(digitTimer);
     closeList(); hide(bannerEl);
     document.documentElement.classList.remove("tvwin");
     try { tizen.tvwindow.hide(function () {}, function () {}, "MAIN"); } catch (e) {}
   }
   function hide(el) { if (el) el.style.display = "none"; }
+
+  // Back where it was: the TV was switched off (or Couch TV closed) while live TV or an input
+  // played inside Couch TV, so it opens on that again. With the TV's "Autorun Last App" on,
+  // switching the TV on lands on our live TV, not Samsung's. Back from the picture forgets it.
+  (function resume() {
+    var was = null;
+    try { was = JSON.parse(localStorage.getItem("couch.watching") || "null"); } catch (x) {}
+    if (!was || !was.type) return;
+    setTimeout(function () {
+      if (winOn) return;
+      if (was.type === "TV") openLive();
+      else showSource(was, function () { try { localStorage.removeItem("couch.watching"); } catch (x) {} });
+    }, 1200);
+  })();
 
   // channels
   var chList = null;
