@@ -370,8 +370,9 @@
     if (e.type !== "keydown") return;
     var k = keyName(code);
     if (srcOn) {
-      if (code === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
-      else if (code === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
+      var ns = srcItems.length || 1;
+      if (code === 38) { srcI = (srcI - 1 + ns) % ns; drawSources(); }
+      else if (code === 40) { srcI = (srcI + 1) % ns; drawSources(); }
       else if (code === 13) pickSource();
       else if (isBackKey(e) || k === "Source") closeSources();
       return;

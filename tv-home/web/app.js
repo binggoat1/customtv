@@ -1264,6 +1264,10 @@
       if (dx) {
         var nx = g + dx;
         if (nx >= 0 && nx < gridEls.length && Math.floor(nx / GRID_COLS) === row) g = nx;
+        else {   // past the end of a row: round to its other end
+          var first = row * GRID_COLS, last = Math.min(gridEls.length - 1, first + GRID_COLS - 1);
+          g = dx > 0 ? first : last;
+        }
       } else if (dy < 0 && row === 0 && NIGHT && expanded) {
         setExpanded(false);   // up from the top of All apps: back to the dock, on the same app
       } else if (dy < 0 && row === 0) {
@@ -2051,11 +2055,16 @@
     SET.confirm = null;
     if (SET.col === "secs") {
       if (dy) {
-        var n = Math.max(0, Math.min(SECS.length - 1, SET.sec + dy));
+        var n = (SET.sec + dy + SECS.length) % SECS.length;   // round from the last section to the first
         if (n !== SET.sec) { SET.sec = n; SET.sub = null; SET.msg = ""; SET.keyFocus = null; SET.ri = 0; }
       } else if (dx > 0) enterRows();
     } else if (dy) {
+      var was = SET.ri;
       SET.ri = stepRow(rows, SET.ri, dy);
+      if (SET.ri === was) {   // past the end of the list: round to its other end
+        var w = dy > 0 ? stepRow(rows, -1, 1) : stepRow(rows, rows.length, -1);
+        if (w >= 0 && w < rows.length && focusable(rows[w])) SET.ri = w;
+      }
       SET.keyFocus = rows[SET.ri] ? rows[SET.ri].key : null;
     } else if (dx < 0) leaveRows();
     renderSettings();
