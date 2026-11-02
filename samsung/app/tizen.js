@@ -322,11 +322,17 @@
   function chNum(c) { return c ? c.major + (c.minor > 0 && c.minor < 1000 ? "-" + c.minor : "") : ""; }
   var tuned = { onsuccess: function () { banner(); }, onnosignal: function () { banner(said("ch_nosignal")); },
     onprograminforeceived: function () { if (bannerEl && bannerEl.style.display !== "none") banner(); } };
+  var prevCh = null;
+  function notePrev() { var c = currentCh(); if (c) prevCh = { major: c.major, minor: c.minor }; }
+  function backCh() { if (prevCh) tuneTo(prevCh); else banner(); }
   function stepCh(d) {
+    notePrev();
     try { tizen.tvchannel[d > 0 ? "tuneUp" : "tuneDown"](tuned, function () { banner(said("ch_failed")); }, "ALL", "MAIN"); }
     catch (e) { banner(said("ch_failed")); }
   }
   function tuneTo(c) {
+    var now = currentCh();
+    if (now && !(now.major === c.major && now.minor === c.minor)) prevCh = { major: now.major, minor: now.minor };
     try { tizen.tvchannel.tune({ major: c.major, minor: c.minor }, tuned, function () { banner(said("ch_failed")); }, "MAIN"); }
     catch (e) { banner(said("ch_failed")); }
   }
@@ -414,7 +420,7 @@
   function keyName(code) { for (var k in KEYS) if (KEYS[k] === code) return k; return ""; }
   var KEYS = {};
   try { tizen.tvinputdevice.registerKey("Exit"); } catch (e) {}
-  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide", "Exit", "Menu"].forEach(function (k) {
+  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide", "Exit", "Menu", "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "PreviousChannel"].forEach(function (k) {
     try { KEYS[k] = tizen.tvinputdevice.getKey(k).code; } catch (e) {}
   });
 
@@ -612,7 +618,8 @@
       return '<div class="it' + (i === mI ? " focus" : "") + '"><svg viewBox="0 0 24 24">' + MI[x.icon] + '</svg><span class="l">' + esc(x.label) + "</span>" +
         (x.slider !== undefined ? '<span class="bar"><i style="width:' + x.slider + '%"></i></span>' : "") +
         (x.value ? '<span class="v">' + esc(x.value) + "</span>" : "") + "</div>";
-    }).join("") + '<p class="shint">' + esc(said(menuList[mI] && menuList[mI].id === "vol" ? "qm_hint_vol" : "qm_hint")) + "</p>";
+    }).join("") + '<p class="shint">' + esc(said(menuList[mI] && menuList[mI].id === "vol" ? "qm_hint_vol" : "qm_hint")) + "</p>" +
+      '<p class="keys"><i class="a">A</i>' + esc(said("live_tv")) + '<i class="b">B</i>' + esc(said("tv_guide")) + '<i class="c">C</i>' + esc(said("sources")) + '<i class="d">D</i>' + esc(said("qm_title")) + "</p>";
     menuEl.style.display = "block";
   }
   function openMenu() { menuOn = true; mI = 0; closeSources(); closeList(); hide(bannerEl); drawMenu(); }
@@ -643,6 +650,17 @@
     else if (code === 13) menuAct();
   }
 
+  // The remote's coloured A B C D buttons, the same everywhere in Couch TV: A live TV, B the guide,
+  // C sources, D the quick panel (BN59-01315B has no Menu button: its SETTINGS sends Menu)
+  function colourAct(k) {
+    if (k === "ColorF0Red") { if (watch && watch.type === "TV") banner(); else openLive(); }
+    else if (k === "ColorF1Green") openGuide();
+    else if (k === "ColorF2Yellow") openSources();
+    else if (k === "ColorF3Blue") openMenu();
+    else if (k === "PreviousChannel") { if (watch && watch.type === "TV") backCh(); else openLive(); }
+  }
+  function closeAll() { closeMenu(); if (guideOn) closeGuide(); closeSources(); closeList(); }
+
   // While our menus or a picture are up, the remote's keys are ours, before app.js sees them.
   // Volume is ours everywhere in Couch TV.
   function isBackKey(e) { return e.keyCode === 10009 || e.keyCode === 27 || e.keyCode === 8; }
@@ -657,6 +675,7 @@
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type !== "keydown") return;
     var k = keyName(code);
+    if (/^Color|PreviousChannel/.test(k)) { closeAll(); colourAct(k); return; }
     if (menuOn) { menuKey(e, code, k); return; }
     if (guideOn) { guideKey(e, code, k); return; }
     if (srcOn) {
@@ -819,7 +838,11 @@
   // an input, another app) they do what Samsung made them do.
   var REMAP = {};
   [["Source", function () { if (!srcOn && !winOn) openSources(); }],
-   ["ChannelUp", openLive], ["ChannelDown", openLive], ["ChannelList", function () { openLive(); }],
+   ["ChannelUp", openLive], ["ChannelDown", openLive],
+   ["ChannelList", function () { openLive(); setTimeout(function () { if (winOn) openList(); }, 1000); }],
+   ["ColorF0Red", function () { colourAct("ColorF0Red"); }], ["ColorF1Green", function () { colourAct("ColorF1Green"); }],
+   ["ColorF2Yellow", function () { colourAct("ColorF2Yellow"); }], ["ColorF3Blue", function () { colourAct("ColorF3Blue"); }],
+   ["PreviousChannel", function () { colourAct("PreviousChannel"); }],
    ["Guide", function () { if (!guideOn) openGuide(); }],
    ["Menu", function () { if (!menuOn) openMenu(); }]].forEach(function (k) {
     try { tizen.tvinputdevice.registerKey(k[0]); REMAP[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; }
