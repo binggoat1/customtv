@@ -53,6 +53,12 @@ TV on the computer:
   app.css spells `inset: 0` out as top/right/bottom/left. The TV home's JavaScript is plain ES5,
   which these browsers run. Checked in a browser with the fallback forced on (the same picture as
   with real gaps); not yet on a real 2020 TV.
+- **On a real 2020 TV (UE55TU7092, Tizen 5.5), 2 November 2026:** the app installed with
+  Apps2Samsung from a Mac and runs. Two fixes after the first look: Romanian ă, ș and ț came from
+  another font (the Inter file had no Latin Extended letters; `fonts/inter-latin-ext-wght-normal.woff2`
+  now has them), and moving through Home settings lagged (each press rebuilt the whole list, and
+  compat.js went over the whole page; now only the rows that change are redrawn, and compat.js
+  only looks at what changed). About 2.5 times faster per press in a browser slowed down six times.
 
 ## What works and what does not
 

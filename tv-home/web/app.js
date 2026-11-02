@@ -2022,6 +2022,26 @@
     return '<div class="' + cls + '"' + (r.lang ? ' lang="' + esc(r.lang) + '"' : "") + ">" + lead +
       '<span class="sl"><b>' + esc(label) + "</b>" + sub + "</span>" + value + tail + "</div>";
   }
+  // Puts a list of HTML strings into box, one child each, touching only the children whose HTML
+  // changed. Moving the focus changes two rows; rebuilding the whole list on every press made
+  // settings slow on older TVs (images reloaded, the whole list laid out again).
+  var patchTmp = document.createElement("div");
+  function patchList(box, items) {
+    var old = box._items || [];
+    if (box.children.length !== old.length || items.length !== old.length) {
+      box.innerHTML = items.join("");
+    } else {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] === old[i]) continue;
+        patchTmp.innerHTML = items[i];
+        if (patchTmp.children.length !== 1) { box.innerHTML = items.join(""); break; }
+        box.replaceChild(patchTmp.firstElementChild, box.children[i]);
+      }
+    }
+    box._items = items;
+  }
+  function setText(id, text) { var el = $(id); if (el.textContent !== text) el.textContent = text; }
+
   function renderSettings() {
     var rows = rowsNow();
     if (SET.sub && !rows.length) { SET.sub = null; rows = rowsNow(); }
@@ -2035,19 +2055,19 @@
       if (focusable(rows[SET.ri])) SET.keyFocus = rows[SET.ri].key;
       else SET.col = "secs";
     }
-    $("set-title").textContent = t("set_title");
-    $("set-secs").innerHTML = SECS.map(function (sc, i) {
+    setText("set-title", t("set_title"));
+    patchList($("set-secs"), SECS.map(function (sc, i) {
       var cls = "ssec" + (i === SET.sec ? (SET.col === "secs" ? " focus" : " on") : "");
       return '<div class="' + cls + '"><i>' + ICONS[sc[1]] + "</i><span>" + esc(t("sec_" + sc[0])) + "</span></div>";
-    }).join("");
-    $("set-crumb").textContent = SET.sub ? SET.sub.crumb : "";
-    $("set-head").textContent = SET.sub ? SET.sub.title() : t("sec_" + SECS[SET.sec][0]);
+    }));
+    setText("set-crumb", SET.sub ? SET.sub.crumb : "");
+    setText("set-head", SET.sub ? SET.sub.title() : t("sec_" + SECS[SET.sec][0]));
     var box = $("set-rows");
-    box.innerHTML = rows.map(rowHTML).join("");
-    $("set-msg").textContent = SET.msg || "";
+    patchList(box, rows.map(rowHTML));
+    setText("set-msg", SET.msg || "");
     var cur = rows[SET.ri];
-    $("set-hint").textContent = SET.typing ? t("hint_typing") : SET.lift ? t("hint_lift") : SET.col === "secs" ? t("hint_secs") :
-      cur && cur.move ? t("hint_rows_move") : t("hint_rows");
+    setText("set-hint", SET.typing ? t("hint_typing") : SET.lift ? t("hint_lift") : SET.col === "secs" ? t("hint_secs") :
+      cur && cur.move ? t("hint_rows_move") : t("hint_rows"));
     // keep the focused row well inside the list (a quarter of it from either edge), scrolling only
     // when it gets closer, so short lists and their headings never move
     var f = box.querySelector(".srow.focus");

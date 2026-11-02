@@ -7,6 +7,14 @@
   font-family: "Inter"; font-weight: 100 900; font-display: block;
   src: url(fonts/inter-latin-wght-normal.woff2) format("woff2");
 }
+/* ă ș ț and the rest of Latin Extended (Romanian, Polish, Czech...). The second address is for an
+   app installed before this file existed: its code updates itself, its fonts do not. */
+@font-face {
+  font-family: "Inter"; font-weight: 100 900; font-display: block;
+  src: url(fonts/inter-latin-ext-wght-normal.woff2) format("woff2"),
+       url(https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.1.1/files/inter-latin-ext-wght-normal.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
   --bg: #0b0b0e;
@@ -592,4 +600,10 @@ body {
 .sh-hint { margin: 0.25rem 0 0 0.25rem; font-size: 1.25rem; line-height: 1.75rem; color: rgba(255, 255, 255, 0.5); }
 @media (prefers-reduced-motion: reduce) {
   .sh-b, .sh-scene, .sh-room, .sh-rooms, .sh-dial .arc { transition: none; }
+}
+
+/* Browsers with no backdrop blur (Samsung 2020-2021, Chrome 69-76): the home showed through the
+   settings and smart home screens, busy behind the text. A darker screen instead. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .settings, .smart { background: rgba(10, 8, 12, 0.94); }
 }

@@ -83,19 +83,43 @@
     document.documentElement.classList.add("no-flex-gap");
     var sels = gapSelectors().join(",");
     if (!sels) return;
-    var queued = false;
+    // Each change only looks at the gap rows it can affect: the changed element itself, its parent,
+    // and any gap rows inside what was added. A full pass over the page on every key press made
+    // moving around slow on older TVs.
+    var all = true, dirty = [], queued = false;
+    function isBox(el) { try { return el && el.nodeType === 1 && el.matches(sels); } catch (e) { return false; } }
+    function mark(el) { if (isBox(el) && dirty.indexOf(el) < 0) dirty.push(el); }
     function run() {
       queued = false;
-      var boxes;
-      try { boxes = document.querySelectorAll(sels); } catch (e) { return; }
-      for (var i = 0; i < boxes.length; i++) fix(boxes[i]);
+      var boxes = dirty;
+      dirty = [];
+      if (all) {
+        all = false;
+        try { boxes = document.querySelectorAll(sels); } catch (e) { return; }
+      }
+      for (var i = 0; i < boxes.length; i++) if (boxes[i].isConnected !== false) fix(boxes[i]);
     }
-    function later() { if (!queued) { queued = true; setTimeout(run, 30); } }
+    function later() { if (!queued) { queued = true; setTimeout(run, 0); } }
     run();
     // app.js builds the shelves and lists after this and changes classes as focus moves
-    new MutationObserver(later).observe(document.body,
-      { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    window.addEventListener("resize", later);
+    new MutationObserver(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i], el = m.target;
+        mark(el);
+        mark(el.parentNode);
+        // a new class can show or hide what is inside; added nodes bring their own rows
+        var roots = m.type === "childList" ? m.addedNodes : [el];
+        for (var j = 0; j < roots.length; j++) {
+          var n = roots[j];
+          if (n.nodeType !== 1) continue;
+          mark(n);
+          var inner = n.querySelectorAll(sels);
+          for (var k = 0; k < inner.length; k++) mark(inner[k]);
+        }
+      }
+      if (dirty.length) later();
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", function () { all = true; later(); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
