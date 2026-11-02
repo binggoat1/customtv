@@ -56,7 +56,7 @@
     "au.com.stan.and", "au.com.streamotion.ares.tv", "com.amazon.amazonvideo.livingroom",
     "com.sbs.ondemand.tv", "com.apple.atve.androidtv.appletv", "com.cbs.ca", "au.com.ninenow.ctv",
     "com.swm.live", "au.com.tenplay", "au.com.kayosports.tv", "au.com.foxtel.atv", "com.wbd.stream",
-    "com.spotify.tv.android", "com.google.android.youtube.tvmusic", "samsung.guide"
+    "com.spotify.tv.android", "com.google.android.youtube.tvmusic", "samsung.guide", "samsung.store"
   ];
   // The TV's own tools go last, in this order, just before the screens.
   var APP_LAST = ["com.mediatek.wwtv.tvcenter", "com.android.vending", "com.android.tv.settings"];
@@ -630,7 +630,9 @@
   var sleepEnds = null, picMode = null, picCanSet = false, picShown = false, picBusy = false, picModes = null;
   var qi = 0, menuI = 0, noteTimer = null, quickReady = false, quickEls = [];
 
-  window.COUCH_NOTE = function (text) { note(text); };   // samsung/app/tizen.js: an app the TV would not open
+  window.COUCH_NOTE = function (text) { note(text); };
+  // samsung/app/tizen.js's quick panel (the remote's Menu button) reaches these
+  window.COUCH_HOME = { openSettings: function () { openSettings(); }, toggleLook: function () { toggleLook(); }, isNight: function () { return NIGHT; } };   // samsung/app/tizen.js: an app the TV would not open
   function note(text) {
     clearTimeout(noteTimer);
     $("quick-note").textContent = text || "";

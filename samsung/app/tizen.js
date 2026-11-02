@@ -86,6 +86,8 @@
     // no tile: the remote's Source button and the top row's input button open our Sources menu
     { package: "samsung.source", key: "sources", tile: false, ids: ["com.samsung.tv.coba.source", "org.tizen.SMSourceAPP"],
       icon: tvIcon("#34d3c3", "#0b8a9c", '<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>') },
+    { package: "samsung.store", key: "app_store", ids: ["com.samsung.tv.store"],
+      icon: tvIcon("#5aa9ff", "#2f5bea", '<path d="M5 8h14l-1.2 11a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>') },
     { package: "samsung.guide", key: "tv_guide", ids: ["org.tizen.epg"],
       icon: tvIcon("#ffbd4a", "#ee7414", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>') }
   ];
@@ -412,7 +414,7 @@
   function keyName(code) { for (var k in KEYS) if (KEYS[k] === code) return k; return ""; }
   var KEYS = {};
   try { tizen.tvinputdevice.registerKey("Exit"); } catch (e) {}
-  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide", "Exit"].forEach(function (k) {
+  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide", "Exit", "Menu"].forEach(function (k) {
     try { KEYS[k] = tizen.tvinputdevice.getKey(k).code; } catch (e) {}
   });
 
@@ -518,6 +520,83 @@
     if (id) try { tizen.application.launch(id); } catch (e) {}
   }
 
+  // ---------- our quick panel on the remote's Menu button ----------
+  // Instead of Samsung's quick menu: volume (left and right), mute, sources, guide, live TV, the
+  // look, Couch TV's settings and the TV's own settings. Over the home or over a picture.
+  var menuOn = false, menuEl = null, mI = 0;
+  var MI = {
+    vol: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8.5a5 5 0 0 1 0 7"/>',
+    mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+    src: '<path d="M4 8h10M4 16h10"/><path d="M17 5l3 3-3 3M17 13l3 3-3 3"/>',
+    guide: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/>',
+    tv: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 21h6M9 2.5l3 3 3-3"/>',
+    look: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/>',
+    home: '<path d="M4 11l8-7 8 7v9H4z"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
+  };
+  function menuItems() {
+    var app = window.COUCH_HOME || {}, list = [];
+    if (audioOk) {
+      var v = 0, m = false;
+      try { v = tizen.tvaudiocontrol.getVolume(); m = tizen.tvaudiocontrol.isMute(); } catch (x) {}
+      list.push({ id: "vol", icon: m ? "mute" : "vol", label: said("qm_volume"), value: m ? said("qm_muted") : String(v), slider: m ? 0 : v });
+      list.push({ id: "mute", icon: m ? "vol" : "mute", label: said(m ? "qm_unmute" : "qm_mute") });
+    }
+    list.push({ id: "src", icon: "src", label: said("sources") });
+    list.push({ id: "guide", icon: "guide", label: said("tv_guide") });
+    if (!(watch && watch.type === "TV")) list.push({ id: "tv", icon: "tv", label: said("live_tv") });
+    if (winOn) list.push({ id: "home", icon: "home", label: said("qm_home") });
+    if (app.toggleLook) list.push({ id: "look", icon: "look", label: said(app.isNight && app.isNight() ? "classic_look" : "night_look") });
+    if (app.openSettings) list.push({ id: "set", icon: "gear", label: said("gear_home") });
+    if (settingsId()) list.push({ id: "tvset", icon: "gear", label: said("gear_tv") });
+    return list;
+  }
+  function settingsId() { return sysById["com.samsung.tv.coba.setting"] ? "com.samsung.tv.coba.setting" : sysById["org.tizen.setting"] ? "org.tizen.setting" : null; }
+  function openTvSettings() {
+    var id = settingsId();
+    if (!id) return false;
+    try { tizen.application.launch(id, null, function (e) { flash(said("app_blocked") + " (" + (e && e.name) + ")"); }); return true; } catch (e) { return false; }
+  }
+  var menuList = [];
+  function drawMenu() {
+    if (!menuEl) menuEl = layer("osd-menu");
+    menuList = menuItems();
+    if (mI >= menuList.length) mI = menuList.length - 1;
+    menuEl.innerHTML = "<h2>" + esc(said("qm_title")) + "</h2>" + menuList.map(function (x, i) {
+      return '<div class="it' + (i === mI ? " focus" : "") + '"><svg viewBox="0 0 24 24">' + MI[x.icon] + '</svg><span class="l">' + esc(x.label) + "</span>" +
+        (x.slider !== undefined ? '<span class="bar"><i style="width:' + x.slider + '%"></i></span>' : "") +
+        (x.value ? '<span class="v">' + esc(x.value) + "</span>" : "") + "</div>";
+    }).join("") + '<p class="shint">' + esc(said(menuList[mI] && menuList[mI].id === "vol" ? "qm_hint_vol" : "qm_hint")) + "</p>";
+    menuEl.style.display = "block";
+  }
+  function openMenu() { menuOn = true; mI = 0; closeSources(); closeList(); hide(bannerEl); drawMenu(); }
+  function closeMenu() { menuOn = false; hide(menuEl); }
+  function menuAct() {
+    var x = menuList[mI], app = window.COUCH_HOME || {};
+    if (!x) return;
+    if (x.id === "vol") return;
+    if (x.id === "mute") { try { tizen.tvaudiocontrol.setMute(!tizen.tvaudiocontrol.isMute()); } catch (e) {} drawMenu(); return; }
+    closeMenu();
+    if (x.id === "src") openSources();
+    else if (x.id === "guide") openGuide();
+    else if (x.id === "tv") openLive();
+    else if (x.id === "home") closeWindow();
+    else if (x.id === "look") { if (winOn) closeWindow(); app.toggleLook(); }
+    else if (x.id === "set") { if (winOn) closeWindow(); app.openSettings(); }
+    else if (x.id === "tvset") openTvSettings();
+  }
+  function menuKey(e, code, k) {
+    var n = menuList.length || 1, x = menuList[mI];
+    if (isBackKey(e) || k === "Menu") closeMenu();
+    else if (code === 38) { mI = (mI - 1 + n) % n; drawMenu(); }
+    else if (code === 40) { mI = (mI + 1) % n; drawMenu(); }
+    else if ((code === 37 || code === 39) && x && x.id === "vol") {
+      try { tizen.tvaudiocontrol[code === 39 ? "setVolumeUp" : "setVolumeDown"](); } catch (e2) {}
+      drawMenu();
+    }
+    else if (code === 13) menuAct();
+  }
+
   // While our menus or a picture are up, the remote's keys are ours, before app.js sees them.
   // Volume is ours everywhere in Couch TV.
   function isBackKey(e) { return e.keyCode === 10009 || e.keyCode === 27 || e.keyCode === 8; }
@@ -528,10 +607,11 @@
       if (e.type === "keydown") { try { VOL[code](); } catch (x) {} volShow(); }
       return;
     }
-    if (!srcOn && !winOn && !listOn && !guideOn) return;
+    if (!srcOn && !winOn && !listOn && !guideOn && !menuOn) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type !== "keydown") return;
     var k = keyName(code);
+    if (menuOn) { menuKey(e, code, k); return; }
     if (guideOn) { guideKey(e, code, k); return; }
     if (srcOn) {
       var ns = srcItems.length || 1;
@@ -561,6 +641,7 @@
       else if (k === "ChannelUp" || k === "ChannelDown" || k === "ChannelList") { closeWindow(); openLive(); }
       else if (k === "Guide") openGuide();   // over the picture
       else if (k === "Exit") closeWindow();
+      else if (k === "Menu") openMenu();
       return;
     }
     if (code === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
@@ -572,6 +653,7 @@
   window.addEventListener("keyup", grab, true);
 
   function launch(pkg) {
+    if (pkg === "com.android.tv.settings") return openTvSettings();
     if (pkg === "samsung.livetv") return openLive();
     if (pkg === "samsung.guide") { openGuide(); return true; }
     if (pkg === "samsung.source") return openSources();
@@ -692,7 +774,8 @@
   var REMAP = {};
   [["Source", function () { if (!srcOn && !winOn) openSources(); }],
    ["ChannelUp", openLive], ["ChannelDown", openLive], ["ChannelList", function () { openLive(); }],
-   ["Guide", function () { if (!guideOn) openGuide(); }]].forEach(function (k) {
+   ["Guide", function () { if (!guideOn) openGuide(); }],
+   ["Menu", function () { if (!menuOn) openMenu(); }]].forEach(function (k) {
     try { tizen.tvinputdevice.registerKey(k[0]); REMAP[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; }
     catch (e) { send("log", "registerKey " + k[0] + ": " + e); }
   });

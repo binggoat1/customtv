@@ -696,3 +696,18 @@ html.tvwin .osd-guide { background: rgba(12, 10, 16, 0.88); }
 .osd-guide .tg-p.wait, .osd-guide .tg-p.none { left: 0; right: 0; color: rgba(255, 255, 255, 0.45); background: transparent; }
 .osd-guide .tg-now { position: absolute; top: -0.5rem; bottom: 0; width: 0.1875rem; margin-left: -0.09rem; background: #ff8fa3; }
 .osd-guide .shint { margin: 1rem 0 0; font-size: 1.25rem; color: rgba(255, 255, 255, 0.55); }
+
+/* Samsung: our quick panel on the Menu button (samsung/app/tizen.js) */
+.osd-menu { right: 3rem; top: 3rem; width: 34rem; padding: 1.5rem; border-radius: 2rem; background: rgba(20, 18, 24, 0.94); }
+.osd-menu h2 { margin: 0 0 0.75rem 1rem; font-size: 2rem; line-height: 2.5rem; }
+.osd-menu .it { display: flex; align-items: center; min-height: 4.25rem; margin-top: 0.375rem; padding: 0 1.25rem; border-radius: 1.25rem; font-size: 1.5rem; font-weight: 600; background: rgba(255, 255, 255, 0.07); }
+.osd-menu .it svg { flex: none; width: 2rem; height: 2rem; margin-right: 1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.osd-menu .it .l { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.osd-menu .it .bar { position: relative; flex: none; width: 9rem; height: 0.4375rem; margin: 0 1rem; border-radius: 0.25rem; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+.osd-menu .it .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; }
+.osd-menu .it .v { flex: none; min-width: 2.5rem; text-align: right; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.8); }
+.osd-menu .it.focus { background: #fff; color: #111; }
+.osd-menu .it.focus .bar { background: rgba(0, 0, 0, 0.15); }
+.osd-menu .it.focus .bar i { background: #111; }
+.osd-menu .it.focus .v { color: #111; }
+.osd-menu .shint { margin: 1rem 1rem 0; font-size: 1.25rem; line-height: 1.75rem; color: rgba(255, 255, 255, 0.55); }
