@@ -153,6 +153,23 @@ Reading the TV (power, which app is open, the volume) needs no Allow. Keys and o
 - Arrows and OK move around and open an app. Back inside couch-tv goes back to the start.
 - On the phone remote: volume, Home (opens couch-tv), and "put on" a YouTube video or a Netflix show.
 
+## Updates without a computer
+
+Build the app once with `--update owner/repo@branch` (a public GitHub repository):
+
+```sh
+.venv/bin/python samsung/build.py --update you/couch-tv@main
+```
+
+and install it as in step 3. From then on, each time Couch TV opens it asks GitHub for that
+branch's latest commit. When there is a new one it downloads the TV home's code from it
+(`app.js`, `app.css`, `i18n.js`, `compat.js`, `smarthome.js` and `samsung/app/tizen.js`), keeps
+it on the TV and runs it, the same time or the next. So a push to the branch reaches the TV with no
+computer. Everything else (pictures, fonts, `index.html`, new files, `config.xml`) still needs a
+reinstall. A downloaded copy that fails to start twice in a row is thrown away for good, and the
+copy inside the app runs again. `samsung/app/ota.js` has the details. The Build workflow also
+makes this app on every push (the `couch-tv-samsung` download on the run's page).
+
 ## How the hook works
 
 `bridge/samsung.py` asks the TV every 2 seconds, on its own network ports, which need no pairing:

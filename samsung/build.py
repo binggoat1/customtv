@@ -11,6 +11,8 @@ What goes in: the TV home (tv-home/web), samsung/app (the Samsung side), the app
 phone remote, the Samsung app ids from bridge/apps.py, and the bridge's settings (from config.json,
 else config.example.json) as the copy the TV uses when the computer is off.
 --tv is the TV's id in config.json, for a house with more than one TV.
+--update owner/repo@branch makes the app take newer code from that public GitHub branch each time it
+opens (samsung/app/ota.js), so a push reaches the TV with no reinstall.
 --log-url sends the page's console and a copy of the screen's HTML to a computer, for testing.
 """
 import argparse
@@ -37,6 +39,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--bridge", default="", help="the bridge's address, e.g. http://my-computer.local:5400")
     ap.add_argument("--tv", default="", help="this TV's id in config.json (only with more than one TV)")
+    ap.add_argument("--update", default="", help="owner/repo@branch: the TV takes newer code from that public GitHub branch by itself (samsung/app/ota.js)")
     ap.add_argument("--log-url", default="", help="for testing: where the app sends its console")
     a = ap.parse_args()
 
@@ -64,6 +67,18 @@ def main():
     html = html.replace(tag, '<script src="$WEBAPIS/webapis/webapis.js"></script>\n'
                              '<script src="settings.js"></script>\n<script src="tizen-apps.js"></script>\n'
                              '<script src="tizen.js"></script>\n' + tag)
+    if a.update:
+        # updates over the air: the code files go through ota.js, which runs a newer copy from GitHub when there is one
+        css = '<link rel="stylesheet" href="app.css">'
+        if css not in html:
+            raise SystemExit("tv-home/web/index.html no longer loads app.css; update samsung/build.py")
+        html = html.replace(css, '<script src="settings.js"></script>\n<script src="ota.js"></script>\n'
+                                 '<script>COUCH_OTA.settle(); COUCH_OTA.css("app.css");</script>')
+        for name in ("compat.js", "i18n.js", "smarthome.js", "app.js", "tizen.js"):
+            tag = '<script src="%s"></script>' % name
+            if tag not in html:
+                raise SystemExit("index.html no longer loads %s; update samsung/build.py and samsung/app/ota.js" % name)
+            html = html.replace(tag, '<script>COUCH_OTA.js("%s")</script>' % name)
     with open(index, "w") as f:
         f.write(html)
 
@@ -73,7 +88,7 @@ def main():
                 "  try { t = localStorage.getItem(\"couch.configjs\"); } catch (e) {}\n"
                 "  if (t) try { (0, eval)(t); } catch (e) {}\n"
                 "  if (!window.COUCH_CONFIG) window.COUCH_CONFIG = " + json.dumps(config.public()) + ";\n})();\n")
-    settings = {"bridge": a.bridge.rstrip("/"), "tv": a.tv, "log": a.log_url.rstrip("/")}
+    settings = {"bridge": a.bridge.rstrip("/"), "tv": a.tv, "log": a.log_url.rstrip("/"), "update": a.update}
     with open(os.path.join(stage, "settings.js"), "w") as f:
         f.write("window.COUCH_TIZEN = " + json.dumps(settings) + ";\n")
     table = {}

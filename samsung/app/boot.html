@@ -9,6 +9,7 @@
 <body>
 <script src="settings.js"></script>
 <script src="tizen-apps.js"></script>
+<script src="ota.js"></script>
 <script>
 // First page of the Samsung app. It notes which apps this TV has (the home page needs the list
 // straight away), asks the bridge for its settings, then opens the TV home (index.html): live
@@ -32,8 +33,13 @@
   function store(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
 
   // the apps on this TV, for the home's app row
-  var appsDone = false, bridgeAnswer = null;
-  function next() { if (appsDone && bridgeAnswer !== null) go(bridgeAnswer); }
+  var appsDone = false, bridgeAnswer = null, otaDone = false;
+  function next() { if (appsDone && otaDone && bridgeAnswer !== null) go(bridgeAnswer); }
+
+  // a newer TV home from GitHub, when the app was built with --update (ota.js)
+  var OTA = window.COUCH_OTA;
+  if (OTA && OTA.on) OTA.check(10000, function () { otaDone = true; next(); });
+  else otaDone = true;
   try {
     tizen.application.getAppsInfo(function (list) {
       store("couch.tizen.apps", JSON.stringify(list.map(function (a) {
@@ -58,7 +64,7 @@
     x.send();
   }
   next();
-  setTimeout(function () { go(bridgeAnswer === true); }, 6000);   // never stuck on a black screen
+  setTimeout(function () { go(bridgeAnswer === true); }, OTA && OTA.on ? 12000 : 6000);   // never stuck on a black screen
 })();
 </script>
 </body>
