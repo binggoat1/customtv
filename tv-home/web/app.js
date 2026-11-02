@@ -467,6 +467,20 @@
       showScene(0);
     } else if (SCENES[scene] === s) showScene(nextFrom(scene));
   }
+  // Shuffle (on unless switched off in Home settings): the scenes come in a random order, each one
+  // once before any comes back, and never the same one twice in a row.
+  var bag = [];
+  function shuffleOn() { return ST.scene_shuffle !== false; }
+  function peekNext() {
+    if (!shuffleOn() || SCENES.length < 3) return nextFrom(scene);
+    bag = bag.filter(function (k) { return k < SCENES.length && !SCENES[k].lost && k !== scene; });
+    if (!bag.length) {
+      for (var k = 0; k < SCENES.length; k++) if (k !== scene && !SCENES[k].lost) bag.push(k);
+      for (var j = bag.length - 1; j > 0; j--) { var r = Math.floor(Math.random() * (j + 1)), x = bag[j]; bag[j] = bag[r]; bag[r] = x; }
+    }
+    return bag.length ? bag[0] : nextFrom(scene);
+  }
+  function takeNext() { var n = peekNext(); if (bag[0] === n) bag.shift(); return n; }
   function nextFrom(i) {
     for (var k = 1; k <= SCENES.length; k++) if (!SCENES[(i + k) % SCENES.length].lost) return (i + k) % SCENES.length;
     return i;
@@ -548,7 +562,7 @@
     if (prev !== i) sceneEls[prev].classList.remove("on");
     // after the fade, stop drawing the old one and get the next one ready
     setTimeout(function () {
-      var next = nextFrom(scene);
+      var next = peekNext();
       sceneEls.forEach(function (el, k) { if (k !== scene && k !== next) el.classList.remove("ready"); });
       readyScene(next);
     }, 2000);
@@ -575,7 +589,7 @@
   }
 
   // the settings screen covers the scenes, so they wait (one less thing for a small TV stick to draw)
-  function nextScene() { if (zone !== "settings") showScene(nextFrom(scene)); }
+  function nextScene() { if (zone !== "settings") showScene(takeNext()); }
 
   // The bridge's reading for the place in config.json, or straight from Open-Meteo with no bridge
   // or when Home settings chose another place. Hidden when Home settings switched the weather off.
@@ -1641,6 +1655,8 @@
       var i = SECS_STEPS.indexOf(secs), n = i < 0 ? 20 : SECS_STEPS[(i + 1) % SECS_STEPS.length];
       ST.scene_seconds = n; SCENE_MS = n * 1000; saveSettings();
     } });
+    rows.push({ kind: "check", key: "scene-shuffle", label: t("scene_shuffle"), sub: t("scene_shuffle_sub"), checked: shuffleOn(),
+      act: function () { ST.scene_shuffle = !shuffleOn(); bag = []; saveSettings(); } });
     rows.push({ kind: "cycle", key: "clock", label: t("clock"), value: CLOCK24 ? t("clock_24") : t("clock_12"), act: function () {
       CLOCK24 = !CLOCK24; ST.clock = CLOCK24 ? "24h" : "12h"; saveSettings(); glassShown = ""; clock();
     } });
@@ -2327,7 +2343,9 @@
       // ?scene=fog starts on that scene, for previews (?scene=own: the first of the household's
       // photos; ?scene=<id>: one of your own scenes)
       var first = (Q.match(/[?&]scene=([a-z0-9]+)/) || [])[1];
-      showScene(Math.max(0, SCENES.map(function (s) { return s.own ? "own" : s.id; }).indexOf(first)));
+      var at = SCENES.map(function (s) { return s.own ? "own" : s.id; }).indexOf(first);
+      if (at < 0 && shuffleOn()) at = Math.floor(Math.random() * SCENES.length);   // shuffle: start anywhere
+      showScene(Math.max(0, at));
       if (SCENES.length > 1) setInterval(nextScene, SCENE_MS);
       // the clock font must be in before the glass is measured
       if (document.fonts) document.fonts.load("300 10px Antonio").then(function () { glassShown = ""; clock(); });
