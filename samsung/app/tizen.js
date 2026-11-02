@@ -411,9 +411,112 @@
   try { tizen.tvinputdevice.registerKey("Info"); INFO = tizen.tvinputdevice.getKey("Info").code; } catch (e) {}
   function keyName(code) { for (var k in KEYS) if (KEYS[k] === code) return k; return ""; }
   var KEYS = {};
-  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide"].forEach(function (k) {
+  try { tizen.tvinputdevice.registerKey("Exit"); } catch (e) {}
+  ["Source", "ChannelUp", "ChannelDown", "ChannelList", "Guide", "Exit"].forEach(function (k) {
     try { KEYS[k] = tizen.tvinputdevice.getKey(k).code; } catch (e) {}
   });
+
+  // ---------- our TV guide ----------
+  // Channels down the left, the next three hours across, the focused programme's details on top.
+  // Programmes come from tizen.tvchannel.getProgramList (tv.channel), one channel at a time as the
+  // rows come into view. OK on a programme on now watches that channel in Couch TV.
+  var guideOn = false, guideEl = null, gRow = 0, gCol = 0, gTop = 0, gProgs = {}, gStart = 0, gLoading = {};
+  var G_ROWS = 7, G_MIN = 180;
+  function ms(d) {
+    if (!d) return 0;
+    if (d.getTime) return d.getTime();
+    try { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds ? d.getSeconds() : 0).getTime(); }
+    catch (x) { return 0; }
+  }
+  function hm(t) { var d = new Date(t), p = function (n) { return (n < 10 ? "0" : "") + n; }; return p(d.getHours()) + ":" + p(d.getMinutes()); }
+  function chKey(c) { return c.major + "." + c.minor; }
+  function loadProgs(c) {
+    var key = chKey(c);
+    if (gProgs[key] || gLoading[key]) return;
+    gLoading[key] = true;
+    try {
+      tizen.tvchannel.getProgramList(c, new tizen.TZDate(), function (list) {
+        gProgs[key] = (list || []).map(function (p) {
+          var s = ms(p.startTime);
+          return { title: p.title || "", start: s, end: s + (p.duration || 0) * 1000, text: p.detailedDescription || "" };
+        }).filter(function (p) { return p.end > gStart; }).sort(function (a, b) { return a.start - b.start; });
+        delete gLoading[key];
+        if (guideOn) drawGuide();
+      }, function (e) { gProgs[key] = []; delete gLoading[key]; send("log", "programmes: " + (e && e.name)); if (guideOn) drawGuide(); }, G_MIN / 60 + 1);
+    } catch (e) { gProgs[key] = []; delete gLoading[key]; }
+  }
+  function openGuide() {
+    var bad = function () { if (systemTile("samsung.guide") && systemTile("samsung.guide").have) samsungGuide(); };
+    if (!window.tizen || !tizen.tvchannel || !tizen.tvchannel.getProgramList) return bad();
+    channels(function (l) {
+      if (!l.length) return bad();
+      var now = Date.now();
+      gStart = now - now % (30 * 60000);   // from the last half hour
+      var c = currentCh(); gRow = 0;
+      for (var i = 0; c && i < l.length; i++) if (l[i].major === c.major && l[i].minor === c.minor) { gRow = i; break; }
+      gTop = Math.max(0, Math.min(gRow - 2, l.length - G_ROWS)); gCol = 0;
+      guideOn = true; hide(bannerEl); closeList();
+      drawGuide();
+    });
+  }
+  function closeGuide() { guideOn = false; hide(guideEl); }
+  function rowProgs(i) { var c = (chList || [])[i]; return c ? gProgs[chKey(c)] || null : null; }
+  function focusedProg() { var p = rowProgs(gRow); return p && p.length ? p[Math.min(gCol, p.length - 1)] : null; }
+  function drawGuide() {
+    if (!guideEl) guideEl = layer("osd-guide");
+    var l = chList || [], end = gStart + G_MIN * 60000, now = Date.now(), W = 100 / (G_MIN * 60000);
+    var html = "", cur = currentCh();
+    for (var r = gTop; r < Math.min(l.length, gTop + G_ROWS); r++) {
+      var c = l[r]; loadProgs(c);
+      var ps = gProgs[chKey(c)], cells = "";
+      if (!ps) cells = '<div class="tg-p wait">…</div>';
+      else if (!ps.length) cells = '<div class="tg-p none">' + esc(said("guide_none")) + "</div>";
+      else ps.forEach(function (p, j) {
+        if (p.start >= end) return;
+        var a = Math.max(p.start, gStart), b = Math.min(p.end, end);
+        cells += '<div class="tg-p' + (r === gRow && j === Math.min(gCol, ps.length - 1) ? " focus" : "") + (p.start <= now && p.end > now ? " now" : "") +
+          '" style="left:' + ((a - gStart) * W) + "%;width:" + Math.max(0, (b - a) * W) + '%"><span>' + esc(p.title) + "</span></div>";
+      });
+      var on = cur && c.major === cur.major && c.minor === cur.minor;
+      html += '<div class="tg-row' + (r === gRow ? " sel" : "") + '"><div class="tg-ch' + (on ? " on" : "") + '"><b>' + esc(chNum(c)) + "</b>" + esc(c.channelName || "") +
+        '</div><div class="tg-line">' + cells + "</div></div>";
+    }
+    var ticks = "";
+    for (var m = 0; m < G_MIN; m += 30) ticks += '<span style="left:' + (m * 60000 * W) + '%">' + hm(gStart + m * 60000) + "</span>";
+    var nowAt = (now - gStart) * W;
+    var f = focusedProg(), fc = l[gRow];
+    var head = f ? '<h2>' + esc(f.title) + "</h2><p>" + esc((fc ? chNum(fc) + " · " + (fc.channelName || "") + " · " : "") + hm(f.start) + "–" + hm(f.end)) + "</p>" +
+      (f.text ? '<p class="desc">' + esc(f.text) + "</p>" : "") : "<h2>" + esc(fc ? fc.channelName || chNum(fc) : said("tv_guide")) + "</h2>";
+    guideEl.innerHTML = '<div class="tg-head">' + head + '</div><div class="tg-time"><div class="tg-ch"></div><div class="tg-line">' + ticks + "</div></div>" +
+      '<div class="tg-body">' + html + '<div class="tg-now" style="left:calc(16rem + (100% - 16rem) * ' + (nowAt / 100) + ')"></div></div>' +
+      '<p class="shint">' + esc(said("guide_hint")) + "</p>";
+    guideEl.style.display = "block";
+  }
+  function guideKey(e, code, k) {
+    var l = chList || [], n = l.length;
+    if (isBackKey(e) || k === "Guide") { closeGuide(); return; }
+    if (code === 38 || code === 40 || k === "ChannelUp" || k === "ChannelDown") {
+      var d = (code === 38 || k === "ChannelUp") ? -1 : 1;
+      var t = (focusedProg() || {}).start || Date.now();
+      gRow = (gRow + d + n) % n;
+      if (gRow < gTop) gTop = gRow; else if (gRow >= gTop + G_ROWS) gTop = gRow - G_ROWS + 1;
+      var ps = rowProgs(gRow) || []; gCol = 0;   // the programme on at the same time in the new row
+      for (var i = 0; i < ps.length; i++) if (ps[i].start <= t && ps[i].end > t) { gCol = i; break; }
+    } else if (code === 37) { gCol = Math.max(0, gCol - 1); }
+    else if (code === 39) { var p2 = rowProgs(gRow) || []; gCol = Math.min(Math.max(0, p2.length - 1), gCol + 1); }
+    else if (code === 13) {
+      var c = l[gRow], f = focusedProg(), now = Date.now();
+      if (f && f.start > now) { flash(said("guide_later") + " " + hm(f.start)); return; }
+      closeGuide();
+      if (c) { if (!(watch && watch.type === "TV")) openLive(); setTimeout(function () { tuneTo(c); }, watch ? 0 : 900); }
+      return;
+    }
+    drawGuide();
+  }
+  function samsungGuide() {
+    var x = systemTile("samsung.guide"), id = x && x.have && x.have[0];
+    if (id) try { tizen.application.launch(id); } catch (e) {}
+  }
 
   // While our menus or a picture are up, the remote's keys are ours, before app.js sees them.
   // Volume is ours everywhere in Couch TV.
@@ -425,10 +528,11 @@
       if (e.type === "keydown") { try { VOL[code](); } catch (x) {} volShow(); }
       return;
     }
-    if (!srcOn && !winOn && !listOn) return;
+    if (!srcOn && !winOn && !listOn && !guideOn) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type !== "keydown") return;
     var k = keyName(code);
+    if (guideOn) { guideKey(e, code, k); return; }
     if (srcOn) {
       var ns = srcItems.length || 1;
       if (code === 38) { srcI = (srcI - 1 + ns) % ns; drawSources(); }
@@ -455,7 +559,8 @@
       else if (tv && DIG[code] !== undefined) digit(DIG[code]);
       else if (tv && code === INFO) banner();
       else if (k === "ChannelUp" || k === "ChannelDown" || k === "ChannelList") { closeWindow(); openLive(); }
-      else if (k === "Guide") { closeWindow(); launch("samsung.guide"); }
+      else if (k === "Guide") openGuide();   // over the picture
+      else if (k === "Exit") closeWindow();
       return;
     }
     if (code === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
@@ -468,6 +573,7 @@
 
   function launch(pkg) {
     if (pkg === "samsung.livetv") return openLive();
+    if (pkg === "samsung.guide") { openGuide(); return true; }
     if (pkg === "samsung.source") return openSources();
     var a = byPkg[pkg], m = MAP[pkg], sys = systemTile(pkg);
     var ids = sys ? sys.have.slice() : a ? [a.id] : [];
@@ -586,7 +692,7 @@
   var REMAP = {};
   [["Source", function () { if (!srcOn && !winOn) openSources(); }],
    ["ChannelUp", openLive], ["ChannelDown", openLive], ["ChannelList", function () { openLive(); }],
-   ["Guide", function () { launch("samsung.guide"); }]].forEach(function (k) {
+   ["Guide", function () { if (!guideOn) openGuide(); }]].forEach(function (k) {
     try { tizen.tvinputdevice.registerKey(k[0]); REMAP[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; }
     catch (e) { send("log", "registerKey " + k[0] + ": " + e); }
   });
