@@ -669,3 +669,5 @@ html.tvwin body > .osd { visibility: visible !important; }
 html.lite #grid.grid-in { animation: gridIn 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important; }
 html.lite #grid.grid-back { animation: gridBack 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important; }
 @media (prefers-reduced-motion: reduce) { #grid.grid-in, #grid.grid-back, html.lite #grid.grid-in, html.lite #grid.grid-back { animation: none !important; } }
+html.tvwin .srcs { background: rgba(10, 8, 12, 0.45); }
+html.tvwin .srcs .box { background: rgba(28, 24, 32, 0.94); }

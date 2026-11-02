@@ -150,7 +150,7 @@
     readSources(function (list) {
       srcItems = list; srcI = 0;
       for (var i = 0; i < list.length; i++) if (list[i].kind === "src" && list[i].on) { srcI = i; break; }
-      if (!srcBox) { srcBox = document.createElement("div"); srcBox.className = "srcs"; document.body.appendChild(srcBox); }
+      if (!srcBox) { srcBox = document.createElement("div"); srcBox.className = "srcs osd"; document.body.appendChild(srcBox); }
       srcOn = true; srcBox.style.display = "flex";
       drawSources();
     });
@@ -217,7 +217,7 @@
   // Live TV inside Couch TV; where the TV will not show it, say why on screen for a few seconds,
   // then go to the TV's own live TV
   function openLive() {
-    if (watch && watch.type === "TV") { banner(); return true; }
+    if (watch && watch.type === "TV") { closeSources(); banner(); return true; }
     showSource(tvSrc, function (e, threw, detail) {
       closeSources();
       flash(said("live_failed") + (detail ? " (" + detail + ")" : ""));
@@ -272,10 +272,15 @@
   function banner(note) {
     if (!bannerEl) bannerEl = layer("osd-ch");
     var c = currentCh(), p = currentProg(), when = "";
-    if (p && p.startTime) {
-      var st = p.startTime.getHours ? p.startTime : new Date(p.startTime);
-      when = time(st) + (p.duration ? "–" + time(new Date(st.getTime() + p.duration * 1000)) : "");
-    }
+    // the programme's times: Samsung gives a TZDate (getHours, no getTime), so the end time is
+    // worked out in minutes; anything odd leaves the times out rather than the whole banner
+    try {
+      if (p && p.startTime) {
+        var st = p.startTime, h = st.getHours(), m = st.getMinutes(), pad = function (n) { return (n < 10 ? "0" : "") + n; };
+        when = pad(h) + ":" + pad(m);
+        if (p.duration) { var e = (h * 60 + m + Math.round(p.duration / 60)) % 1440; when += "–" + pad(Math.floor(e / 60)) + ":" + pad(e % 60); }
+      }
+    } catch (x) { when = ""; }
     bannerEl.innerHTML = '<div class="num">' + esc(digits || chNum(c)) + "</div>" +
       '<div class="txt"><b>' + esc(digits ? said("ch_typing") : (c && c.channelName) || said("live_tv")) + "</b>" +
       (note ? "<small>" + esc(note) + "</small>" : p && p.title ? "<small>" + esc(p.title) + (when ? " · " + when : "") + "</small>" : "") + "</div>";
@@ -364,6 +369,13 @@
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type !== "keydown") return;
     var k = keyName(code);
+    if (srcOn) {
+      if (code === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
+      else if (code === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
+      else if (code === 13) pickSource();
+      else if (isBackKey(e) || k === "Source") closeSources();
+      return;
+    }
     if (listOn) {
       var n = (chList || []).length;
       if (code === 38) { listI = (listI - 1 + n) % n; drawList(); }
@@ -375,7 +387,7 @@
     if (winOn) {
       var tv = watch && watch.type === "TV";
       if (isBackKey(e)) { if (digits) { digits = ""; clearTimeout(digitTimer); hide(bannerEl); } else closeWindow(); }
-      else if (k === "Source") { closeWindow(); openSources(); }
+      else if (k === "Source") openSources();   // over the picture, which keeps playing
       else if (tv && (k === "ChannelUp" || code === 38)) stepCh(1);
       else if (tv && (k === "ChannelDown" || code === 40)) stepCh(-1);
       else if (tv && (k === "ChannelList" || code === 13)) openList();
