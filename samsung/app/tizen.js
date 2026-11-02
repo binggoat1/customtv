@@ -174,7 +174,12 @@
     if (!srcOn && !winOn) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.type !== "keydown") return;
-    if (winOn) { if (isBackKey(e)) closeWindow(); return; }
+    if (winOn) {
+      var act = REMAP[e.keyCode];
+      if (isBackKey(e)) closeWindow();
+      else if (act) { closeWindow(); act(); }   // Source over an input: back to our menu
+      return;
+    }
     if (e.keyCode === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
     else if (e.keyCode === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
     else if (e.keyCode === 13) pickSource();
@@ -294,7 +299,25 @@
     tizen.tvinputdevice.registerKey("Tools");
     TOOLS = tizen.tvinputdevice.getKey("Tools").code;
   } catch (e) {}
+  // The remote's own buttons, remapped while Couch TV is on screen (Samsung lets an app take these,
+  // a 2020 TV lists them under System apps): Source opens our Sources menu, the channel buttons
+  // and the channel list go back to live TV, Guide opens Samsung's guide. Anywhere else (live TV,
+  // an input, another app) they do what Samsung made them do.
+  var REMAP = {};
+  [["Source", function () { if (!srcOn && !winOn) openSources(); }],
+   ["ChannelUp", hideApp], ["ChannelDown", hideApp], ["ChannelList", hideApp],
+   ["Guide", function () { launch("samsung.guide"); }]].forEach(function (k) {
+    try { tizen.tvinputdevice.registerKey(k[0]); REMAP[tizen.tvinputdevice.getKey(k[0]).code] = k[1]; }
+    catch (e) { send("log", "registerKey " + k[0] + ": " + e); }
+  });
   document.addEventListener("keydown", function (e) {
+    var act = REMAP[e.keyCode];
+    if (act && !winOn) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (!e.repeat) act();
+      return;
+    }
     if (TOOLS !== null && e.keyCode === TOOLS) {
       e.preventDefault();
       e.stopImmediatePropagation();
