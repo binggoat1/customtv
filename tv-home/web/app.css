@@ -623,3 +623,17 @@ body {
 .lite .night .scene::after, .lite .night .bg::after {
   content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0, 0, 0, 0.28); pointer-events: none;
 }
+
+/* Samsung: our own Sources menu (samsung/app/tizen.js), and an input shown full screen through the
+   TV window: the page goes transparent so the picture underneath shows. No flex gap here. */
+.srcs { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 40; align-items: center; justify-content: center; background: rgba(10, 8, 12, 0.9); text-shadow: none; }
+.srcs .box { width: 42rem; padding: 2rem 2rem 1.5rem; border-radius: 2rem; background: rgb(36, 32, 40); }
+.srcs h2 { margin: 0 0 1rem 1rem; font-size: 2.5rem; line-height: 3rem; font-weight: 700; }
+.srcs .it { display: flex; align-items: center; justify-content: space-between; min-height: 4.5rem; margin-top: 0.5rem; padding: 0 1.5rem; border-radius: 1.5rem; font-size: 1.75rem; font-weight: 600; color: rgba(255, 255, 255, 0.92); background: rgba(255, 255, 255, 0.08); }
+.srcs .it.off { color: rgba(255, 255, 255, 0.5); }
+.srcs .it small { font-size: 1.25rem; font-weight: 500; opacity: 0.7; }
+.srcs .it.focus { background: #fff; color: #111; }
+.srcs .msg { min-height: 2rem; margin: 1rem 1rem 0; font-size: 1.375rem; color: #ffb4a8; }
+.srcs .shint { margin: 0.5rem 1rem 0; font-size: 1.25rem; color: rgba(255, 255, 255, 0.55); }
+html.tvwin, html.tvwin body { background: transparent !important; }
+html.tvwin body > * { visibility: hidden !important; }

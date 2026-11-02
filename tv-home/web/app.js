@@ -1890,6 +1890,8 @@
   // ---- quick buttons ----
   function quickRows() {
     var on = QUICK.slice(), order = on.concat(QUICK_ALL.filter(function (q) { return on.indexOf(q) < 0; }));
+    // with no computer at all, only list the buttons that can work (the sleep timer and picture switch need it)
+    if (ALONE) order = order.filter(function (q) { return q === "look" || (q === "input" && nativeInputs()); });
     var rows = order.map(function (q) {
       var enabled = on.indexOf(q) >= 0;
       return { kind: "check", key: "quick:" + q, label: t("quick_" + q), checked: enabled, sub: quickNeeds(q),

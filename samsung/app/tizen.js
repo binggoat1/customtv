@@ -104,7 +104,88 @@
     x.send(JSON.stringify(TV_ID ? { app: pkg, tv: TV_ID } : { app: pkg }));
   }
 
+  // ---------- Live TV and our own Sources menu ----------
+  // Samsung lets this app open its guide but not its live TV or input list (a 2020 TV takes the
+  // launch and shows nothing). So Live TV puts Couch TV in the background: the TV goes back to
+  // the channel or input it showed before. Sources is our own list of the TV's inputs
+  // (systeminfo VIDEOSOURCE), and an input picked there is shown full screen through the TV
+  // window (privilege tv.window, in config.xml since this change: older installs need a reinstall).
+  function hideApp() {
+    try { tizen.application.getCurrentApplication().hide(); return; } catch (e) {}
+    try { tizen.application.getCurrentApplication().exit(); } catch (e) {}
+  }
+  var SRC_NAMES = { HDMI: "HDMI", AV: "AV", COMP: "Component", PC: "PC", SCART: "SCART", DVI: "DVI", SVIDEO: "S-Video" };
+  var srcBox = null, srcItems = [], srcI = 0, srcOn = false, winOn = false;
+  function srcLabel(x) { return (SRC_NAMES[x.type] || x.type) + (x.number ? " " + x.number : ""); }
+  function readSources(cb) {
+    var out = [{ kind: "tv", label: said("live_tv") }];
+    try {
+      tizen.systeminfo.getPropertyValue("VIDEOSOURCE", function (v) {
+        var add = function (list, on) {
+          (list || []).forEach(function (x) {
+            if (x.type === "TV" || x.type === "MEDIA") return;
+            out.push({ kind: "src", type: x.type, number: x.number, label: srcLabel(x), on: on });
+          });
+        };
+        add(v.connected, true); add(v.disconnected, false);
+        cb(out);
+      }, function (e) { send("log", "VIDEOSOURCE: " + (e && e.name)); cb(out); });
+    } catch (e) { send("log", "VIDEOSOURCE threw " + e); cb(out); }
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function drawSources() {
+    srcBox.innerHTML = '<div class="box"><h2>' + esc(said("sources")) + "</h2>" + srcItems.map(function (x, i) {
+      return '<div class="it' + (i === srcI ? " focus" : "") + (x.kind === "src" && !x.on ? " off" : "") + '"><span>' + esc(x.label) + "</span>" +
+        (x.kind === "src" ? "<small>" + esc(said(x.on ? "src_connected" : "src_empty")) + "</small>" : "") + "</div>";
+    }).join("") + '<p class="msg"></p><p class="shint">' + esc(said("src_hint")) + "</p></div>";
+  }
+  function srcMsg(t) { var m = srcBox && srcBox.querySelector(".msg"); if (m) m.textContent = t; }
+  function openSources() {
+    readSources(function (list) {
+      srcItems = list; srcI = 0;
+      for (var i = 0; i < list.length; i++) if (list[i].kind === "src" && list[i].on) { srcI = i; break; }
+      if (!srcBox) { srcBox = document.createElement("div"); srcBox.className = "srcs"; document.body.appendChild(srcBox); }
+      srcOn = true; srcBox.style.display = "flex";
+      drawSources();
+    });
+    return true;
+  }
+  function closeSources() { srcOn = false; if (srcBox) srcBox.style.display = "none"; }
+  function pickSource() {
+    var x = srcItems[srcI];
+    if (!x) return;
+    if (x.kind === "tv") { closeSources(); hideApp(); return; }
+    try {
+      var fail = function (e) { send("log", "tvwindow: " + (e && e.name)); srcMsg(said("src_failed") + (e && e.name ? " (" + e.name + ")" : "")); };
+      tizen.tvwindow.setSource({ type: x.type, number: x.number }, function () {
+        tizen.tvwindow.show(function () {
+          closeSources(); winOn = true; document.documentElement.classList.add("tvwin");
+        }, fail, ["0px", "0px", innerWidth + "px", innerHeight + "px"], "MAIN");
+      }, fail, "MAIN");
+    } catch (e) { send("log", "tvwindow threw " + e); srcMsg(said("src_reinstall")); }
+  }
+  function closeWindow() {
+    winOn = false; document.documentElement.classList.remove("tvwin");
+    try { tizen.tvwindow.hide(function () {}, function () {}, "MAIN"); } catch (e) {}
+  }
+  // While our menu or an input is up, the remote's keys are ours, before app.js sees them.
+  function isBackKey(e) { return e.keyCode === 10009 || e.keyCode === 27 || e.keyCode === 8; }
+  function grab(e) {
+    if (!srcOn && !winOn) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.type !== "keydown") return;
+    if (winOn) { if (isBackKey(e)) closeWindow(); return; }
+    if (e.keyCode === 38) { srcI = Math.max(0, srcI - 1); drawSources(); }
+    else if (e.keyCode === 40) { srcI = Math.min(srcItems.length - 1, srcI + 1); drawSources(); }
+    else if (e.keyCode === 13) pickSource();
+    else if (isBackKey(e)) closeSources();
+  }
+  window.addEventListener("keydown", grab, true);
+  window.addEventListener("keyup", grab, true);
+
   function launch(pkg) {
+    if (pkg === "samsung.livetv") { hideApp(); return true; }
+    if (pkg === "samsung.source") return openSources();
     var a = byPkg[pkg], m = MAP[pkg], sys = systemTile(pkg);
     var ids = sys ? sys.have.slice() : a ? [a.id] : [];
     if (m) (m.ids || []).concat(m.app ? [m.app] : []).forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
@@ -201,8 +282,8 @@
     kept: function (k) { try { return localStorage.getItem("tvos." + k); } catch (e) { return null; } },
     keep: function (k, v) { try { localStorage.setItem("tvos." + k, v); } catch (e) {} },
     // the input button: Samsung's own input list, where this TV has it (the Sources tile)
-    canOpenInputs: function () { return !!systemTile("samsung.source") && !!systemTile("samsung.source").have; },
-    openInputs: function () { return launch("samsung.source"); }
+    canOpenInputs: function () { return true; },
+    openInputs: function () { return openSources(); }
   };
 
   // ---------- the remote ----------

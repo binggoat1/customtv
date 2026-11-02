@@ -70,6 +70,14 @@ TV on the computer:
   branch reached the TV with no computer. Home settings, About showed the new commit
   (`Samsung 1.0.0 · 58884eb`) after the app was opened twice.
 
+- **Live TV and Sources on a 2020 TV:** Samsung's own live TV (`com.samsung.tv.coba.livetv`) and
+  input list (`com.samsung.tv.coba.source`) take the launch and show nothing; its guide
+  (`org.tizen.epg`) opens. So the Live TV tile puts Couch TV in the background (the TV goes back
+  to its channel or input), and Sources is couch-tv's own menu: the inputs from systeminfo
+  `VIDEOSOURCE`, the one picked shown full screen through `tizen.tvwindow` (privilege
+  `tv.window`, so an install from before this needs reinstalling). Back returns to the home.
+  Checked against stand-ins for those calls; not yet on the real TV.
+
 ## What works and what does not
 
 | | Samsung |
