@@ -147,7 +147,7 @@ Home settings saves to the same `bridge/data/people.json` the phone uses.
 | `clock` ["12h"] | `12h` (5:30 pm) or `24h` (17:30). |
 | `hide_packages` [none] | Android package names never shown on the home or in More apps, for a maker's own clutter (help apps, file browsers, screen sharing tools). `survey-tv.py` lists every TV app with its package name. For example `["com.example.tvhelp"]`. |
 | `dock_size` [10] | How many apps sit in the Night dock before Settings and More apps. 1 to 10. Everything else is behind More apps. The phone's Arrange apps keeps to the same number. |
-| `language` ["en"] | The TV home's language until someone picks one in Home settings: `en` (English), `es` (Spanish) or `es-MX` (Mexican Spanish). The phone remote has its own choice, "Same as the TV" by default. |
+| `language` ["en"] | The TV home's language until someone picks one in Home settings: `en` (English), `es` (Spanish), `es-MX` (Mexican Spanish) or `ro` (Romanian). The phone remote has its own choice, "Same as the TV" by default. |
 
 ## Apps on the home
 

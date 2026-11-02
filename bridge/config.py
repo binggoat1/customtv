@@ -64,7 +64,7 @@ _COUNTRY_NAMES = {
     "UK": "the United Kingdom", "IE": "Ireland", "CA": "Canada", "IN": "India", "ZA": "South Africa",
     "SG": "Singapore", "DE": "Germany", "FR": "France", "ES": "Spain", "IT": "Italy",
     "NL": "the Netherlands", "SE": "Sweden", "NO": "Norway", "DK": "Denmark", "FI": "Finland",
-    "BR": "Brazil", "MX": "Mexico", "JP": "Japan", "KR": "South Korea", "PH": "the Philippines",
+    "RO": "Romania", "MD": "Moldova", "BR": "Brazil", "MX": "Mexico", "JP": "Japan", "KR": "South Korea", "PH": "the Philippines",
 }
 COUNTRY_NAME = CONFIG.get("country_name") or _COUNTRY_NAMES.get(COUNTRY, COUNTRY)
 # The home's time zone, for times the bridge writes down: "timezone" under "weather".
@@ -238,8 +238,8 @@ def _home(h):
         "scene_seconds": _int(h.get("scene_seconds"), 20, 5, 3600),
         "clock": "24h" if str(h.get("clock")).lower() == "24h" else "12h",
         "dock_size": _int(h.get("dock_size"), DOCK_LIMIT, 1, DOCK_LIMIT),
-        # the TV home's language until someone picks one in Home settings: en, es or es-MX
-        "language": h.get("language") if h.get("language") in ("en", "es", "es-MX") else "en",
+        # the TV home's language until someone picks one in Home settings: en, es, es-MX or ro
+        "language": h.get("language") if h.get("language") in ("en", "es", "es-MX", "ro") else "en",
         # your own scenes, in backgrounds/mine/ (docs/MAKE-A-SCENE.md)
         "my_scenes": mine,
     }

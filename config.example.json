@@ -8,8 +8,8 @@
   "tvs": [
     {
       "id": "living-room",
-      "name": "Living room",
-      "label": "Living room TV",
+      "name": "Sufragerie",
+      "label": "Televizor sufragerie",
       "ip": "SET_YOUR_TV_IP",
       "adb_port": 5555,
       "mac": "",
@@ -28,20 +28,20 @@
     "look": "night",
     "scenes": ["night", "golden", "water", "fog", "dawn"],
     "scene_seconds": 20,
-    "clock": "12h",
+    "clock": "24h",
     "dock_size": 10,
     "hide_packages": [],
-    "language": "en"
+    "language": "ro"
   },
   "phone_remote": true,
   "ask": { "enabled": false },
   "weather": {
-    "lat": -33.8688,
-    "lon": 151.2093,
-    "place": "Sydney",
-    "timezone": "Australia/Sydney"
+    "lat": 44.4268,
+    "lon": 26.1025,
+    "place": "București",
+    "timezone": "Europe/Bucharest"
   },
-  "country": "AU",
+  "country": "RO",
   "screens": [],
   "home_assistant": {
     "enabled": false,

@@ -40,6 +40,7 @@
   if (arg("picture")) cfg.tvs[0].picture_modes = ["Calibrated", "Dynamic"];
   if (arg("look")) cfg.home.look = arg("look");
   if (arg("clock")) cfg.home.clock = arg("clock");
+  if (arg("lang")) cfg.home.language = arg("lang");
   if (arg("dock")) cfg.home.dock_size = parseInt(arg("dock"), 10);
   if (arg("scenes")) cfg.home.scenes = arg("scenes").split(",");
   if (arg("secs")) cfg.home.scene_seconds = parseInt(arg("secs"), 10);
