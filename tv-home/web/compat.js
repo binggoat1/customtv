@@ -38,6 +38,10 @@
     }
   }
 
+  // getComputedStyle turns margin: auto into pixels; the typed style map (Chrome 66+) keeps "auto"
+  function isAuto(el, side) {
+    try { return String(el.computedStyleMap().get("margin-" + side.toLowerCase())) === "auto"; } catch (e) { return false; }
+  }
   function px(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
   // Each touched side remembers its margin from app.css, so a new gap (or a class that moves the
@@ -47,8 +51,9 @@
     var prop = "margin" + side;
     if (!(key in el.dataset)) {
       el.style[prop] = "";
-      el.dataset[key] = getComputedStyle(el)[prop];
+      el.dataset[key] = isAuto(el, side) ? "auto" : getComputedStyle(el)[prop];
     }
+    if (el.dataset[key] === "auto") return;   // margin: auto pushes the item along; leave it
     var want = gap ? (px(el.dataset[key]) + gap) + "px" : "";
     if (el.style[prop] !== want) el.style[prop] = want;
   }
@@ -117,7 +122,9 @@
           for (var k = 0; k < inner.length; k++) mark(inner[k]);
         }
       }
-      if (dirty.length) later();
+      // right away, not on a timer: this runs after app.js's change and before the TV draws it,
+      // so a list never shows for a frame without its spacing and then jumps
+      if (dirty.length) run();
     }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
     window.addEventListener("resize", function () { all = true; later(); });
   }

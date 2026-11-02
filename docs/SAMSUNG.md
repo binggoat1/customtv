@@ -59,6 +59,13 @@ TV on the computer:
   now has them), and moving through Home settings lagged (each press rebuilt the whole list, and
   compat.js went over the whole page; now only the rows that change are redrawn, and compat.js
   only looks at what changed). About 2.5 times faster per press in a browser slowed down six times.
+  A video from the TV then showed the right side jumping on each move: the gaps went in after the
+  list was drawn. compat.js now puts them in before the next frame, and leaves `margin: auto`
+  alone (it had squeezed "Keep watching" onto two lines). Checked in a browser served over http
+  with the fallback forced on: the home and settings match the browser's own flex gap pixel for
+  pixel, and no press draws a frame without the spacing (the timer version did, 4 to 9 of 13).
+  (Pages opened as file:// cannot read their CSS rules, so compat.js does nothing there: test over
+  http.)
 
 ## What works and what does not
 
