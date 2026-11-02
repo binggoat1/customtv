@@ -188,7 +188,6 @@
     var ok = function () {
       closeSources(); closeList();
       watch = src; winOn = true;
-      try { localStorage.setItem("couch.watching", JSON.stringify(src)); } catch (x) {}
       document.documentElement.classList.add("tvwin");
       if (src.type === "TV") banner();
     };
@@ -240,7 +239,6 @@
     }, function () {});
   } catch (e) {}
   function closeWindow() {
-    try { localStorage.removeItem("couch.watching"); } catch (x) {}
     winOn = false; watch = null; digits = ""; clearTimeout(digitTimer);
     closeList(); hide(bannerEl);
     document.documentElement.classList.remove("tvwin");
@@ -248,18 +246,23 @@
   }
   function hide(el) { if (el) el.style.display = "none"; }
 
-  // Back where it was: the TV was switched off (or Couch TV closed) while live TV or an input
-  // played inside Couch TV, so it opens on that again. With the TV's "Autorun Last App" on,
-  // switching the TV on lands on our live TV, not Samsung's. Back from the picture forgets it.
-  (function resume() {
-    var was = null;
-    try { was = JSON.parse(localStorage.getItem("couch.watching") || "null"); } catch (x) {}
-    if (!was || !was.type) return;
+  // Live TV is not reopened at start: Couch TV always starts on its home screen. Older builds kept
+  // the source playing in couch.watching; it is cleared here.
+  try { localStorage.removeItem("couch.watching"); } catch (x) {}
+
+  // Started by the TV in the background (config.xml prelaunch.support: Samsung starts such apps
+  // at power on so they open fast): ask to come to the front, so switching the TV on lands on
+  // the Couch TV home instead of Samsung's live TV. Experimental: a TV may refuse it, and then
+  // nothing changes.
+  (function toFront() {
+    var hiddenAtStart = false;
+    try { hiddenAtStart = document.hidden || document.visibilityState === "hidden"; } catch (x) {}
+    send("log", "started " + (hiddenAtStart ? "hidden (prelaunch)" : "on screen"));
+    if (!hiddenAtStart) return;
     setTimeout(function () {
-      if (winOn) return;
-      if (was.type === "TV") openLive();
-      else showSource(was, function () { try { localStorage.removeItem("couch.watching"); } catch (x) {} });
-    }, 1200);
+      try { tizen.application.launch(SELF, function () { send("log", "to front: ok"); }, function (e) { send("log", "to front: " + (e && e.name)); }); }
+      catch (e) { send("log", "to front threw " + e); }
+    }, 1500);
   })();
 
   // channels

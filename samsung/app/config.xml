@@ -16,6 +16,8 @@
   <tizen:privilege name="http://tizen.org/privilege/tv.audio"/>
   <tizen:privilege name="http://tizen.org/privilege/system"/>
   <tizen:profile name="tv-samsung"/>
+  <!-- started by the TV at power on, in the background; tizen.js then asks to come to the front -->
+  <tizen:metadata key="http://samsung.com/tv/metadata/prelaunch.support" value="true"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
                  encryption="disable" install-location="auto" hwkey-event="enable"/>
 </widget>
