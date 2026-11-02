@@ -674,9 +674,8 @@ html.tvwin .srcs .box { background: rgba(28, 24, 32, 0.94); }
 
 /* Samsung: our TV guide (samsung/app/tizen.js). Rows of absolutely placed programme cells, so no
    flex gap and nothing heavy for older TVs. */
-.osd-guide { left: 0; top: 0; right: 0; bottom: 0; padding: 3rem 4rem 2rem; background: rgba(12, 10, 16, 0.94); }
-html.tvwin .osd-guide { background: rgba(12, 10, 16, 0.88); }
-.osd-guide .tg-head { height: 11.5rem; overflow: hidden; }
+.osd-guide { left: 0; top: 0; right: 0; bottom: 0; padding: 3rem 4rem 2rem; overflow: hidden; }
+.osd-guide .tg-head { position: relative; height: 11.5rem; margin-left: 22rem; overflow: hidden; }
 .osd-guide .tg-head h2 { margin: 0; font-size: 2.75rem; line-height: 3.375rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .osd-guide .tg-head p { margin: 0.375rem 0 0; font-size: 1.5rem; line-height: 2rem; color: rgba(255, 255, 255, 0.72); }
 .osd-guide .tg-head p.desc { max-width: 90rem; color: rgba(255, 255, 255, 0.6); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -711,3 +710,8 @@ html.tvwin .osd-guide { background: rgba(12, 10, 16, 0.88); }
 .osd-menu .it.focus .bar i { background: #111; }
 .osd-menu .it.focus .v { color: #111; }
 .osd-menu .shint { margin: 1rem 1rem 0; font-size: 1.25rem; line-height: 1.75rem; color: rgba(255, 255, 255, 0.55); }
+/* the guide's dark backdrop is the shadow of this box, so the box itself is a hole where the
+   small picture shows (and where there is none, a dark tile) */
+.osd-guide .tg-pip { position: absolute; z-index: -1; left: 4rem; top: 3rem; width: 20rem; height: 11.25rem; border-radius: 1rem; box-shadow: 0 0 0 200rem rgba(12, 10, 16, 0.95); }
+html:not(.tvwin) .osd-guide .tg-pip { background: rgba(255, 255, 255, 0.06); }
+html.lite .osd-guide .tg-pip { box-shadow: 0 0 0 200rem rgba(12, 10, 16, 0.95) !important; }

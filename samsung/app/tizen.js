@@ -444,7 +444,7 @@
         }).filter(function (p) { return p.end > gStart; }).sort(function (a, b) { return a.start - b.start; });
         delete gLoading[key];
         if (guideOn) drawGuide();
-      }, function (e) { gProgs[key] = []; delete gLoading[key]; send("log", "programmes: " + (e && e.name)); if (guideOn) drawGuide(); }, G_MIN / 60 + 1);
+      }, function (e) { gProgs[key] = []; delete gLoading[key]; send("log", "programmes: " + (e && e.name)); if (guideOn) drawGuide(); }, 24);
     } catch (e) { gProgs[key] = []; delete gLoading[key]; }
   }
   function openGuide() {
@@ -459,9 +459,49 @@
       gTop = Math.max(0, Math.min(gRow - 2, l.length - G_ROWS)); gCol = 0;
       guideOn = true; hide(bannerEl); closeList();
       drawGuide();
+      startPip();
     });
   }
-  function closeGuide() { guideOn = false; hide(guideEl); }
+  function closeGuide() { guideOn = false; hide(guideEl); stopPip(); }
+  // The picture, small, at the guide's top left (a hole in the guide's dark backdrop, .tg-pip):
+  // what is playing, made small, or live TV started just for the guide from the home screen.
+  var pipMode = null;
+  function pipRect() {
+    var r = innerWidth / 120;   // 1rem (app.css: html font-size is 100vw / 120)
+    return [Math.round(4 * r) + "px", Math.round(3 * r) + "px", Math.round(20 * r) + "px", Math.round(11.25 * r) + "px"];
+  }
+  function startPip() {
+    var noop = function () {};
+    try {
+      if (winOn) { pipMode = "resize"; tizen.tvwindow.show(noop, noop, pipRect(), "MAIN", "BEHIND"); return; }
+      tizen.tvwindow.setSource(tvSrc, function () {
+        if (!guideOn) return;
+        tizen.tvwindow.show(function () { pipMode = "own"; document.documentElement.classList.add("tvwin"); }, noop, pipRect(), "MAIN", "BEHIND");
+      }, noop, "MAIN");
+    } catch (e) { send("log", "pip: " + e); }
+  }
+  function stopPip() {
+    var noop = function () {}, m = pipMode;
+    pipMode = null;
+    try {
+      if (m === "resize") tizen.tvwindow.show(noop, noop, RECT, "MAIN", "BEHIND");
+      else if (m === "own") { document.documentElement.classList.remove("tvwin"); tizen.tvwindow.hide(noop, noop, "MAIN"); }
+    } catch (e) {}
+  }
+  // OK on a programme on now: that channel full screen. Live TV started for the guide's small
+  // picture just grows; otherwise as from the Live TV tile.
+  function guideWatch(c) {
+    if (pipMode === "own") {
+      pipMode = null; guideOn = false; hide(guideEl);
+      watch = tvSrc; winOn = true;
+      try { tizen.tvwindow.show(function () {}, function () {}, RECT, "MAIN", "BEHIND"); } catch (e) {}
+      tuneTo(c);
+      return;
+    }
+    closeGuide();
+    if (!(watch && watch.type === "TV")) { openLive(); setTimeout(function () { tuneTo(c); }, 900); }
+    else tuneTo(c);
+  }
   function rowProgs(i) { var c = (chList || [])[i]; return c ? gProgs[chKey(c)] || null : null; }
   function focusedProg() { var p = rowProgs(gRow); return p && p.length ? p[Math.min(gCol, p.length - 1)] : null; }
   function drawGuide() {
@@ -474,7 +514,7 @@
       if (!ps) cells = '<div class="tg-p wait">…</div>';
       else if (!ps.length) cells = '<div class="tg-p none">' + esc(said("guide_none")) + "</div>";
       else ps.forEach(function (p, j) {
-        if (p.start >= end) return;
+        if (p.start >= end || p.end <= gStart) return;
         var a = Math.max(p.start, gStart), b = Math.min(p.end, end);
         cells += '<div class="tg-p' + (r === gRow && j === Math.min(gCol, ps.length - 1) ? " focus" : "") + (p.start <= now && p.end > now ? " now" : "") +
           '" style="left:' + ((a - gStart) * W) + "%;width:" + Math.max(0, (b - a) * W) + '%"><span>' + esc(p.title) + "</span></div>";
@@ -489,8 +529,8 @@
     var f = focusedProg(), fc = l[gRow];
     var head = f ? '<h2>' + esc(f.title) + "</h2><p>" + esc((fc ? chNum(fc) + " · " + (fc.channelName || "") + " · " : "") + hm(f.start) + "–" + hm(f.end)) + "</p>" +
       (f.text ? '<p class="desc">' + esc(f.text) + "</p>" : "") : "<h2>" + esc(fc ? fc.channelName || chNum(fc) : said("tv_guide")) + "</h2>";
-    guideEl.innerHTML = '<div class="tg-head">' + head + '</div><div class="tg-time"><div class="tg-ch"></div><div class="tg-line">' + ticks + "</div></div>" +
-      '<div class="tg-body">' + html + '<div class="tg-now" style="left:calc(16rem + (100% - 16rem) * ' + (nowAt / 100) + ')"></div></div>' +
+    guideEl.innerHTML = '<div class="tg-pip"></div><div class="tg-head">' + head + '</div><div class="tg-time"><div class="tg-ch"></div><div class="tg-line">' + ticks + "</div></div>" +
+      '<div class="tg-body">' + html + (nowAt >= 0 && nowAt <= 100 ? '<div class="tg-now" style="left:calc(16rem + (100% - 16rem) * ' + (nowAt / 100) + ')"></div>' : "") + "</div>" +
       '<p class="shint">' + esc(said("guide_hint")) + "</p>";
     guideEl.style.display = "block";
   }
@@ -504,13 +544,19 @@
       if (gRow < gTop) gTop = gRow; else if (gRow >= gTop + G_ROWS) gTop = gRow - G_ROWS + 1;
       var ps = rowProgs(gRow) || []; gCol = 0;   // the programme on at the same time in the new row
       for (var i = 0; i < ps.length; i++) if (ps[i].start <= t && ps[i].end > t) { gCol = i; break; }
-    } else if (code === 37) { gCol = Math.max(0, gCol - 1); }
-    else if (code === 39) { var p2 = rowProgs(gRow) || []; gCol = Math.min(Math.max(0, p2.length - 1), gCol + 1); }
+    } else if (code === 37 || code === 39) {
+      var p2 = rowProgs(gRow) || [];
+      gCol = Math.max(0, Math.min(Math.max(0, p2.length - 1), Math.min(gCol, p2.length - 1) + (code === 39 ? 1 : -1)));
+      var fp = p2[gCol], half = 30 * 60000, first = Date.now() - Date.now() % half;
+      if (fp) {   // keep the focused programme in the three hours on screen
+        if (fp.start >= gStart + G_MIN * 60000 - half) gStart = Math.max(first, fp.start - fp.start % half - half);
+        else if (fp.end <= gStart + half || fp.start < gStart) gStart = Math.max(first, fp.start - fp.start % half);
+      }
+    }
     else if (code === 13) {
       var c = l[gRow], f = focusedProg(), now = Date.now();
       if (f && f.start > now) { flash(said("guide_later") + " " + hm(f.start)); return; }
-      closeGuide();
-      if (c) { if (!(watch && watch.type === "TV")) openLive(); setTimeout(function () { tuneTo(c); }, watch ? 0 : 900); }
+      if (c) guideWatch(c); else closeGuide();
       return;
     }
     drawGuide();
